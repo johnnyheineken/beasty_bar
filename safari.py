@@ -1,9 +1,9 @@
 from textwrap import dedent
 
-from helpers import create_logger
-from shuffle import assign_strategy, init
-from stacks import Queue
-from strategies import strategy_first, strategy_max, strategy_min
+from utils.helpers import create_logger
+from stacks.shuffle import assign_strategy, init
+from stacks.queue import Queue
+from players.strategies import strategy_first, strategy_max, strategy_min
 
 
 class GameRunner:

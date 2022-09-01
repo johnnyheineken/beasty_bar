@@ -1,6 +1,6 @@
 import random
 
-from cards.first import Chameleon, Croc, Gazelle, Hippo, Kangaroo, Lion, Monkey, Parrot, Seal, Skunk, Snake, Zebra
+from cards.first_game_deck import Chameleon, Croc, Gazelle, Hippo, Kangaroo, Lion, Monkey, Parrot, Seal, Skunk, Snake, Zebra
 
 
 def init(n_players=2):

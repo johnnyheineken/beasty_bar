@@ -1,5 +1,5 @@
-from cards import ANIMALS, Card
-from stacks import Queue
+from cards.base import ANIMALS, Card
+from stacks.queue import Queue
 
 
 class Monkey(Card):

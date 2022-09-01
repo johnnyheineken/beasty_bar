@@ -1,7 +1,7 @@
 import pytest
 
-from cards.first import Chameleon, Croc, Gazelle, Hippo, Lion, Monkey, Parrot, Seal, Skunk, Zebra
-from stacks import Queue
+from cards.first_game_deck import Chameleon, Croc, Gazelle, Hippo, Lion, Monkey, Parrot, Seal, Skunk, Zebra
+from stacks.queue import Queue
 
 
 def compare(a: Queue, b: Queue):
