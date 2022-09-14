@@ -3,6 +3,12 @@ from stacks.queue import Queue
 
 
 class Monkey(Card):
+    """
+    If there is one or more monkeys in the queue:
+        - monkeys go to the start of the queue in the reversed order
+        - hippo & cric goes away
+    """
+
     value = ANIMALS.MONKEY
     point_value = 3
 
@@ -21,6 +27,11 @@ class Monkey(Card):
 
 
 class Lion(Card):
+    """
+    Go to the start of the line, unless there is already Lion in the queue.
+    If there are monkeys in the queue, throw them out.
+    """
+
     value = ANIMALS.LION
     point_value = 2
 
@@ -36,6 +47,11 @@ class Lion(Card):
 
 
 class Hippo(Card):
+    """
+    Repeating action.
+    Go to the strt of the queue, unless there is Lion, Zebra, or Hippo in front of you.
+    """
+
     value = ANIMALS.HIPPO
     point_value = 2
     repeating_action = True
@@ -44,14 +60,20 @@ class Hippo(Card):
         dropped = []
         rest = []
         if self in queue:
-            rest = Queue(queue[queue.index(self) + 1:])
-            queue = Queue(queue[:queue.index(self)])
+            rest = Queue(queue[queue.index(self) + 1 :])
+            queue = Queue(queue[: queue.index(self)])
 
         stopping_animals = sorted(
-            queue.find_indices_of(ANIMALS.ZEBRA) + queue.find_indices_of(ANIMALS.LION) + queue.find_indices_of(
-                ANIMALS.HIPPO))
+            queue.find_indices_of(ANIMALS.ZEBRA)
+            + queue.find_indices_of(ANIMALS.LION)
+            + queue.find_indices_of(ANIMALS.HIPPO)
+        )
         if stopping_animals:
-            queue = queue[:stopping_animals[-1] + 1] + [self] + queue[stopping_animals[-1] + 1:]
+            queue = (
+                queue[: stopping_animals[-1] + 1]
+                + [self]
+                + queue[stopping_animals[-1] + 1 :]
+            )
         else:
             queue = [self] + queue
         queue = queue + rest
@@ -60,6 +82,12 @@ class Hippo(Card):
 
 
 class Croc(Card):
+    """
+    Repeating action.
+    Eat any animal, which is not Lion, Hippo, Zebra or Croc in front of you.
+    (Smaller, but not Zebra.)
+    """
+
     value = ANIMALS.CROC
     point_value = 3
     repeating_action = True
@@ -68,16 +96,18 @@ class Croc(Card):
         dropped = []
         rest = []
         if self in queue:
-            rest = Queue(queue[queue.index(self) + 1:])
-            queue = Queue(queue[:queue.index(self)])
+            rest = Queue(queue[queue.index(self) + 1 :])
+            queue = Queue(queue[: queue.index(self)])
 
-        stopping_animals = sorted(queue.find_indices_of(ANIMALS.ZEBRA)
-                                  + queue.find_indices_of(ANIMALS.LION)
-                                  + queue.find_indices_of(ANIMALS.HIPPO)
-                                  + queue.find_indices_of(ANIMALS.CROC))
+        stopping_animals = sorted(
+            queue.find_indices_of(ANIMALS.ZEBRA)
+            + queue.find_indices_of(ANIMALS.LION)
+            + queue.find_indices_of(ANIMALS.HIPPO)
+            + queue.find_indices_of(ANIMALS.CROC)
+        )
         if stopping_animals:
-            queue = queue[:stopping_animals[-1] + 1] + [self]
-            dropped += queue[stopping_animals[-1] + 1:]
+            queue = queue[: stopping_animals[-1] + 1] + [self]
+            dropped += queue[stopping_animals[-1] + 1 :]
         else:
             queue = [self]
             dropped = queue
@@ -86,6 +116,10 @@ class Croc(Card):
 
 
 class Snake(Card):
+    """
+    Sort all cards by their value.
+    """
+
     value = ANIMALS.SNAKE
     point_value = 2
 
@@ -97,16 +131,21 @@ class Snake(Card):
 
 
 class Gazelle(Card):
+    """
+    Repeating action.
+    Jump any animal with lower value in front of you.
+    """
+
     value = ANIMALS.GAZELLE
     point_value = 3
     repeating_action = True
-    
+
     def action(self, queue: Queue):
         dropped = []
         rest = []
         if self in queue:
-            rest = Queue(queue[queue.index(self) + 1:])
-            queue = Queue(queue[:queue.index(self)])
+            rest = Queue(queue[queue.index(self) + 1 :])
+            queue = Queue(queue[: queue.index(self)])
         if len(queue) == 0:
             queue += [self]
         else:
@@ -117,11 +156,14 @@ class Gazelle(Card):
                 queue += [self]
         queue += rest
 
-
         return Queue(queue), dropped
 
 
 class Zebra(Card):
+    """
+    Stops action of most animals.
+    """
+
     value = ANIMALS.ZEBRA
     point_value = 4
 
@@ -133,6 +175,10 @@ class Zebra(Card):
 
 
 class Seal(Card):
+    """
+    Reverse the queue.
+    """
+
     value = ANIMALS.SEAL
     point_value = 2
 
@@ -145,18 +191,24 @@ class Seal(Card):
 
 
 class Chameleon(Card):
+    """
+    Do one time action of any animal laying in the queue
+    """
+
     value = ANIMALS.CHAMELEON
     point_value = 3
     taken_form_of = None
 
     def __str__(self):
         desc = super().__str__()
-        desc += '' if self.taken_form_of is None else f' as {self.taken_form_of}'
+        desc += "" if self.taken_form_of is None else f" as {self.taken_form_of}"
         return desc
 
     def resolve_action(self, queue: Queue, resolver=None):
         if resolver is None:
-            classes_in_queue = [i.__class__ for i in queue if not isinstance(i, Chameleon)]
+            classes_in_queue = [
+                i.__class__ for i in queue if not isinstance(i, Chameleon)
+            ]
             if classes_in_queue:
                 action = lambda x: classes_in_queue[0].action(self, x)
                 self.taken_form_of = classes_in_queue[0].__name__
@@ -168,6 +220,10 @@ class Chameleon(Card):
 
 
 class Kangaroo(Card):
+    """
+    Jump two animals
+    """
+
     value = ANIMALS.KANGAROO
     point_value = 4
 
@@ -181,6 +237,11 @@ class Kangaroo(Card):
 
 
 class Parrot(Card):
+    """
+    Throw any animal to the thrash.
+    Parrot itself goes to the last position in the queue.
+    """
+
     value = ANIMALS.PARROT
     point_value = 4
 
@@ -200,6 +261,10 @@ class Parrot(Card):
 
 
 class Skunk(Card):
+    """
+    All animals with the two highest values go to the thrash.
+    """
+
     value = ANIMALS.SKUNK
     point_value = 4
 

@@ -19,7 +19,7 @@ class Queue(list):
             added_card.resolve_action(self)
         queue, dropped = added_card.action(self)
         all_dropped += dropped
-        for card in reversed(queue):
+        for card in queue:
             if card == added_card:
                 continue
             if card.repeating_action:
