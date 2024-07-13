@@ -1,29 +1,40 @@
 import random
 
-from cards.first_game_deck import Chameleon, Croc, Gazelle, Hippo, Kangaroo, Lion, Monkey, Parrot, Seal, Skunk, Snake, Zebra
+from cards.first_game_deck import Chameleon, Croc, Gazelle, Hippo, Kangaroo, Lion, Monkey, Parrot, Seal, Skunk, Snake, \
+    Zebra
+from cards.base import ANIMALS
+
+NORMAL_CARDS = [Skunk, Kangaroo, Monkey, Seal, Zebra, Gazelle, Snake, Croc, Hippo, Lion]
+ANIMAL_MAPPING = {
+    ANIMALS.CHAMELEON: Chameleon,
+    ANIMALS.CROC: Croc,
+    ANIMALS.GAZELLE: Gazelle,
+    ANIMALS.HIPPO: Hippo,
+    ANIMALS.KANGAROO: Kangaroo,
+    ANIMALS.LION: Lion,
+    ANIMALS.MONKEY: Monkey,
+    ANIMALS.PARROT: Parrot,
+    ANIMALS.SEAL: Seal,
+    ANIMALS.SKUNK: Skunk,
+    ANIMALS.SNAKE: Snake,
+    ANIMALS.ZEBRA: Zebra
+}
 
 
-def init(n_players=2):
-    all_cards = [Skunk, Parrot, Kangaroo, Monkey, Chameleon, Seal, Zebra, Gazelle, Snake, Croc, Hippo, Lion]
+def init(strategies: dict):
     players = {}
-    for player in range(n_players):
+    for player, strategy in strategies.items():
+        all_cards = NORMAL_CARDS.copy()
+        chameleon = strategy.chameleon() or Chameleon
+        parrot = strategy.parrot() or Parrot
+        all_cards += [chameleon, parrot]
+
         personal_cards = [card(player) for card in all_cards]
         random.shuffle(personal_cards)
         players[player] = {
             'hand': [personal_cards.pop() for _ in range(4)],
             'deck': [personal_cards.pop() for _ in range(6)],
-            'thrown': personal_cards
+            'thrown': personal_cards,
+            'strategy': strategy()
         }
-    return players
-
-
-def assign_strategy(players, strategies):
-    n_players = len(players)
-    chosen_strategies = [random.randint(0, len(strategies) - 1) for _ in range(n_players)]
-    print(chosen_strategies)
-    chosen_strategies = [list(strategies.keys())[idx] for idx in chosen_strategies]
-    for player, cards in players.items():
-        description = chosen_strategies[player]
-        cards['strategy'] = {'fn': strategies[description], 'description': description}
-        players[player] = cards
     return players

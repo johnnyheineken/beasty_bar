@@ -26,6 +26,9 @@ class Card:
     def __repr__(self):
         return f'{self.__class__.__name__}({self.player})'
 
+    def __eq__(self, other):
+        return (self.name==other.name) & (self.player == other.player)
+
 
 class ANIMALS(int, Enum):
     LION = 12

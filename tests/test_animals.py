@@ -185,3 +185,14 @@ def test_gazelle(queue, final):
 def test_random(queue, added, final):
     queue, dropped = queue.resolve(added)
     compare(queue, final)
+
+def test_added_and_stopped_croc():
+    q = Queue([Gazelle(3), Gazelle(2), Zebra(1)])
+    q, dropped = q.resolve(Croc(2))
+    assert dropped == []
+
+def test_added_seal_to_croc():
+    q = Queue([Croc(2), Zebra(0), Croc(1)])
+    q, dropped = q.resolve(Seal(3))
+    assert dropped == [Seal(3)]
+    assert q == Queue([Croc(1), Zebra(0), Croc(2)])

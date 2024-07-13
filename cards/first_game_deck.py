@@ -106,11 +106,12 @@ class Croc(Card):
             + queue.find_indices_of(ANIMALS.CROC)
         )
         if stopping_animals:
-            queue = queue[: stopping_animals[-1] + 1] + [self]
             dropped += queue[stopping_animals[-1] + 1 :]
+            queue = queue[: stopping_animals[-1] + 1] + [self]
         else:
-            queue = [self]
             dropped = queue
+            queue = [self]
+
         queue = queue + rest
         return Queue(queue), dropped
 
@@ -204,18 +205,17 @@ class Chameleon(Card):
         desc += "" if self.taken_form_of is None else f" as {self.taken_form_of}"
         return desc
 
-    def resolve_action(self, queue: Queue, resolver=None):
-        if resolver is None:
-            classes_in_queue = [
-                i.__class__ for i in queue if not isinstance(i, Chameleon)
-            ]
-            if classes_in_queue:
-                action = lambda x: classes_in_queue[0].action(self, x)
-                self.taken_form_of = classes_in_queue[0].__name__
-            else:
-                action = lambda x: Zebra.action(self, x)
+    def resolve_action(self, queue: Queue):
+
+        classes_in_queue = [
+            i.__class__ for i in queue if not isinstance(i, Chameleon)
+        ]
+        if classes_in_queue:
+            action = lambda x: classes_in_queue[0].action(self, x)
+            self.taken_form_of = classes_in_queue[0].__name__
         else:
-            action = resolver
+            action = lambda x: Zebra.action(self, x)
+
         self.action = action
 
 
@@ -252,12 +252,8 @@ class Parrot(Card):
         queue += [self]
         return queue, dropped
 
-    def resolve_action(self, queue: Queue, resolver=None):
-        if resolver is None:
-            pass
-        else:
-            action = resolver(queue)
-            self.action = action
+    def resolve_action(self, queue: Queue):
+        ...
 
 
 class Skunk(Card):
