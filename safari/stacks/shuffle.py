@@ -1,8 +1,8 @@
 import random
 
-from cards.first_game_deck import Chameleon, Croc, Gazelle, Hippo, Kangaroo, Lion, Monkey, Parrot, Seal, Skunk, Snake, \
+from safari.cards.first_game_deck import Chameleon, Croc, Gazelle, Hippo, Kangaroo, Lion, Monkey, Parrot, Seal, Skunk, Snake, \
     Zebra
-from cards.base import ANIMALS
+from safari.cards.base import ANIMALS
 
 NORMAL_CARDS = [Skunk, Kangaroo, Monkey, Seal, Zebra, Gazelle, Snake, Croc, Hippo, Lion]
 ANIMAL_MAPPING = {

@@ -1,6 +1,6 @@
 from enum import Enum
 
-from cards import NAMES, PLAYERS, SHORT_NAMES
+from safari.cards import NAMES, PLAYERS, SHORT_NAMES
 
 
 class Card:

@@ -1,11 +1,10 @@
 import pprint
 import random
-from textwrap import dedent
 
-from utils.helpers import create_logger
-from stacks.shuffle import init, ANIMAL_MAPPING
-from stacks.queue import Queue
-from players.strategies import Max, Player
+from safari.utils.helpers import create_logger
+from safari.stacks.shuffle import init, ANIMAL_MAPPING
+from safari.stacks.queue import Queue
+from safari.players.strategies import Max, Player
 
 BAR_QUEUE_LENGTH = 5
 

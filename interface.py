@@ -1,12 +1,11 @@
 import random
 import pyxel
 import time
-from cards.base import ANIMALS
+from safari.cards.base import ANIMALS
 
-from stacks.queue import Queue
-from stacks.shuffle import init, ANIMAL_MAPPING
-from players.strategies import Max, Player
-from safari import GameRunner
+from safari.stacks.shuffle import init, ANIMAL_MAPPING
+from safari.players.strategies import Max, Player
+from safari.safari import GameRunner
 
 SCREEN_WIDTH = 120
 SCREEN_HEIGHT = 160

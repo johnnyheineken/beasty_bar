@@ -1,5 +1,5 @@
-from cards.base import ANIMALS, Card
-from stacks.queue import Queue
+from safari.cards.base import ANIMALS, Card
+from safari.stacks.queue import Queue
 
 
 class Monkey(Card):

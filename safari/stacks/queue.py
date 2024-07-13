@@ -1,4 +1,4 @@
-from cards.base import Card
+from safari.cards.base import Card
 
 
 class Queue(list):
