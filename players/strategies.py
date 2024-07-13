@@ -1,9 +1,7 @@
 def strategy_max(cards):
-    try:
-        played = cards.pop(cards.index(max(cards, key=lambda x: x.value)))
-    except:
-        breakpoint()
-    return played, cards
+    played = cards[cards.index(max(cards, key=lambda x: x.value))]
+
+    return played
 
 
 def strategy_first(cards):

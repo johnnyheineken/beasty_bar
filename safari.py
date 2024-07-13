@@ -40,10 +40,16 @@ class GameRunner:
         self.game_state['queue'] = self.evaluate_queue(queue)
 
         print(f'{self.game_state['queue']=}')
-
+        self.remove_played_card_from_hand(card)
+        self.draw_card()
         self.game_state['turn_number'] += 1
         self.game_log += [self.game_state.copy()]
         self.player_carousel()
+
+    def remove_played_card_from_hand(self, card):
+        hand = self.game_state['table'][self.game_state['current_player']]['hand']
+        c = hand.index(card)
+        hand.pop(c)
 
     def run(self, game_state=None):
         if game_state:
@@ -71,18 +77,15 @@ class GameRunner:
         # print(cards)
         hand = cards["hand"]
         print(f'{hand=}')
-        print(f'{type(cards['strategy'])=}')
         if isinstance(cards['strategy'], Player):
 
             print(self.game_state['queue'])
             print('Your hand')
             print([i.__str__() for i in cards['hand']])
-            played, hand = self.get_players_card(player, hand)
+            played = self.get_players_card(player, hand)
 
         else:
-            played, hand = cards["strategy"].strategy(hand)
-
-        self.game_state['table'][player]['hand'] = hand
+            played = cards["strategy"].strategy(hand)
 
         return played
 
@@ -92,14 +95,6 @@ class GameRunner:
         hand = self.game_state['table'][player]['hand']
         if deck:
             self.game_state['table'][player]['hand'] = hand + [deck.pop(0)]
-
-    def play_card(self, card):
-        player = self.game_state['current_player']
-
-        hand = self.game_state['table'][player]['hand']
-        print(hand)
-        hand.pop(hand.index(card(player)))
-        self.game_state['table'][player]['hand'] = hand
 
     def get_players_card(self, player, hand):
         tries = 0
@@ -121,8 +116,8 @@ class GameRunner:
                 raise ValueError('are you stupid?')
             break
 
-        card = hand.pop(hand.index(card))
-        return card, hand
+        card = hand[hand.index(card)]
+        return card
 
     def player_carousel(self, ):
         players = self.game_state['players']
@@ -162,13 +157,11 @@ def single_player():
     a = pprint.PrettyPrinter(indent=4)
     while True:
         card = gr.get_played_card()
-        gr.draw_card()
         gr.update_game_state(card)
         a.pprint(gr.game_log[-1])
 
 
 def main():
-
     strategies = {0: Max, 1: Max, 2: Max, 3: Max}
     table = init(strategies=strategies)
     gr = GameRunner(table)

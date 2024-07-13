@@ -34,8 +34,8 @@ class App:
         strategies[self.p] = Player
         table = init(strategies=strategies)
         self.gr = GameRunner(table)
-        self.table_cards = [i.value for i in self.gr.game_state['queue']]  # Start with an empty list for table cards
-        self.hand_cards = [i.value for i in self.gr.game_state['table'][self.p]['hand']]  # Example card IDs in hand
+        self.table_cards = [i.value for i in self.gr.game_state['queue']]
+        self.hand_cards = [i.value for i in self.gr.game_state['table'][self.p]['hand']]
         self.card_owners = []  # Track which player played each card
         self.state = "menu"
 
@@ -68,8 +68,6 @@ class App:
         if self.gr.game_state['current_player'] != self.p:
 
             card = self.gr.get_played_card()
-            self.gr.play_card(card)
-            self.gr.draw_card()
             self.gr.update_game_state(card)
             # Add background and append to table cards
             self.table_cards = [i.value for i in self.gr.game_state['queue']]
@@ -88,8 +86,7 @@ class App:
                     card_x = hand_start_x + i * (16 + 4)
                     if card_x <= x <= card_x + 16 and hand_y <= y <= hand_y + 16:
                         # Add the clicked card to the table cards if there is space
-                        self.gr.play_card(ANIMAL_MAPPING[card])
-                        self.gr.draw_card()
+
                         self.gr.update_game_state(ANIMAL_MAPPING[card](self.p))
 
                         self.table_cards = [i.value for i in self.gr.game_state['queue']]
