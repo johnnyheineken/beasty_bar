@@ -35,6 +35,7 @@ def init(strategies: dict):
             'hand': [personal_cards.pop() for _ in range(4)],
             'deck': [personal_cards.pop() for _ in range(6)],
             'thrown': personal_cards,
-            'strategy': strategy()
+            'strategy': strategy(),
+            'finished': False
         }
     return players

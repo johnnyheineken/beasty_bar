@@ -24,6 +24,8 @@ class GameRunner:
             'n_players': len(players),
             'turn_number': 0,
             'table': table,
+            'finished': False,
+            'results': {},
         }
 
     def update_game_state(self, card):
@@ -40,11 +42,31 @@ class GameRunner:
         self.game_state['queue'] = self.evaluate_queue(queue)
 
         print(f'{self.game_state['queue']=}')
+
         self.remove_played_card_from_hand(card)
         self.draw_card()
+        self.check_finished_hand()
+
         self.game_state['turn_number'] += 1
         self.game_log += [self.game_state.copy()]
         self.player_carousel()
+        self.check_if_game_is_finished()
+
+        return self.game_state['finished']
+
+    def check_if_game_is_finished(self):
+        game_finished = all([self.game_state['table'][p]['finished'] for p in self.game_state['table']])
+        if game_finished:
+            self.game_state['finished'] = True
+            results = {}
+            for i in self.game_state['winners']:
+                results[i.player] = results.get(i.player, 0) + i.point_value
+            self.game_state['results'] = results
+
+    def check_finished_hand(self):
+        hand = self.game_state['table'][self.game_state['current_player']]['hand']
+        if not hand:
+            self.game_state['table'][self.game_state['current_player']]['finished'] = True
 
     def remove_played_card_from_hand(self, card):
         hand = self.game_state['table'][self.game_state['current_player']]['hand']
@@ -74,8 +96,8 @@ class GameRunner:
     def get_played_card(self):
         player = self.game_state['current_player']
         cards = self.game_state['table'][player]
-        # print(cards)
         hand = cards["hand"]
+
         print(f'{hand=}')
         if isinstance(cards['strategy'], Player):
 
