@@ -34,7 +34,7 @@ AI_DELAY = 0.5  # Half a second delay for AI players
 
 class App:
     def __init__(self):
-        pyxel.init(SCREEN_WIDTH, SCREEN_HEIGHT, title="Hello Pyxel")
+        pyxel.init(SCREEN_WIDTH, SCREEN_HEIGHT, title="Safari Bar")
         pyxel.mouse(True)
         pyxel.load("assets.pyxres")
         self.reset_game()
@@ -168,6 +168,8 @@ class App:
         y = 140  # Fixed y position for hand cards
         for i, card in enumerate(self.hand_cards):
             x = start_x + i * (16 + 4)
+            # Draw player's color background
+            pyxel.rect(x, y, 16, 16, PLAYER_COLORS[self.p])
             pyxel.blt(x, y, 0, MAPPING[card][0], MAPPING[card][1], 16, 16, INVISBLE_COLOR)
 
     def draw_end(self):

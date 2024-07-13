@@ -165,7 +165,7 @@ class GameRunner:
 
             queue = Queue(queue[2: BAR_QUEUE_LENGTH - 1])
             self.game_state['losers'] += to_losers
-            self.game_state['winners'] = to_winners
+            self.game_state['winners'] += to_winners
         return queue
 
 
