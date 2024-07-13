@@ -9,6 +9,8 @@ from safari.safari import GameRunner
 
 SCREEN_WIDTH = 120
 SCREEN_HEIGHT = 160
+INVISBLE_COLOR = pyxel.COLOR_PURPLE
+
 
 MAPPING = {
     ANIMALS.SKUNK: (0, 0),
@@ -159,14 +161,14 @@ class App:
             x = start_x + i * (16 + 4)
             owner_color = PLAYER_COLORS[self.card_owners[i]]
             pyxel.rect(x, y, 16, 16, owner_color)  # Draw the player's color background
-            pyxel.blt(x, y, 0, MAPPING[card][0], MAPPING[card][1], 16, 16, 11)
+            pyxel.blt(x, y, 0, MAPPING[card][0], MAPPING[card][1], 16, 16, INVISBLE_COLOR)
 
     def draw_hand_cards(self):
         start_x = (120 - (len(self.hand_cards) * 16 + (len(self.hand_cards) - 1) * 4)) // 2
         y = 140  # Fixed y position for hand cards
         for i, card in enumerate(self.hand_cards):
             x = start_x + i * (16 + 4)
-            pyxel.blt(x, y, 0, MAPPING[card][0], MAPPING[card][1], 16, 16, 11)
+            pyxel.blt(x, y, 0, MAPPING[card][0], MAPPING[card][1], 16, 16, INVISBLE_COLOR)
 
     def draw_end(self):
         pyxel.cls(0)
