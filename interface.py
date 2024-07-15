@@ -20,7 +20,6 @@ PLAYER_START_POSITIONS = {
     3: (0, SCREEN_HEIGHT // 2),  # Left
 }
 
-
 class App:
     def __init__(self):
         pyxel.init(SCREEN_WIDTH, SCREEN_HEIGHT, title="Safari Bar")
@@ -36,6 +35,7 @@ class App:
         self.state = "menu"
         self.last_ai_action_time = time.time()
         self.animation_in_progress = False
+        self.chameleon_action = False  # New flag for chameleon action
 
     def setup_players(self):
         self.strategies = {0: Max, 1: Max, 2: Max, 3: Max}
@@ -65,7 +65,7 @@ class App:
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             self.handle_mouse_click()
 
-        if self.state == "game" and not self.animation_in_progress:
+        if self.state == "game" and not self.animation_in_progress and not self.chameleon_action:
             self.update_game()
 
         self.update_animations()
@@ -75,7 +75,8 @@ class App:
         click_handlers = {
             "menu": self.handle_menu_click,
             "submenu": self.handle_submenu_click,
-            "end": self.handle_end_click
+            "end": self.handle_end_click,
+            "chameleon": self.handle_chameleon_click  # New handler for chameleon state
         }
         click_handlers.get(self.state, lambda x, y: None)(x, y)
 
@@ -97,6 +98,29 @@ class App:
                 self.state = "game"
             elif 120 <= y <= 140:
                 self.state = "menu"
+
+    def handle_chameleon_click(self, x, y):
+        start_x = (SCREEN_WIDTH - (5 * cst.ASSET_W_BIG + 4 * 4)) // 2
+        y_pos = 60
+
+        clicked_on_card = False
+        for i, card in enumerate(self.table_cards):
+            card_x = start_x + i * (cst.ASSET_W_BIG + 4)
+            if card_x <= x <= card_x + cst.ASSET_W_BIG and y_pos <= y <= y_pos + cst.ASSET_H_BIG:
+                self.perform_chameleon_action(card)
+                clicked_on_card = True
+                break
+
+        if not clicked_on_card:
+            self.chameleon_action = False
+            self.state = "game"
+
+    def perform_chameleon_action(self, card):
+        print(f"Chameleon action performed on card {card.card_value}")
+        # Add logic to perform the card's action
+        self.game_runner.update_game_state(ANIMAL_MAPPING[card.card_value](self.player_index))
+        self.update_game_state()
+        self.chameleon_action = False
 
     def update_game(self):
         if self.finished:
@@ -125,7 +149,11 @@ class App:
                 card_x = hand_start_x + i * (cst.ASSET_W_BIG + 4)
                 if card_x <= x <= card_x + cst.ASSET_W_BIG and hand_y <= y <= hand_y + cst.ASSET_H_BIG:
                     print(f"Player clicked on card {card.card_value} at ({card_x}, {hand_y})")
-                    self.play_card(card, card_x, hand_y, i)
+                    if card.card_value == 'CHAMELEON':  # Assuming CHAMELEON is the identifier
+                        self.chameleon_action = True
+                        self.state = "chameleon"
+                    else:
+                        self.play_card(card, card_x, hand_y, i)
                     break
 
     def play_card(self, card, card_x, card_y, index):
@@ -135,8 +163,10 @@ class App:
         self.animating_cards.append(card)
         self.hand_cards.pop(index)
 
-    def on_card_animation_complete(self, card, owner):
+    def on_card_animation_complete(self, card, owner=None):
         print(f"Card {card.card_value} animation complete")
+        if owner is None:
+            owner = self.player_index
         self.game_runner.update_game_state(ANIMAL_MAPPING[card.card_value](owner))
         self.update_game_state()
         self.animation_in_progress = False
@@ -165,7 +195,8 @@ class App:
             "menu": self.draw_menu,
             "submenu": self.draw_submenu,
             "game": self.draw_game,
-            "end": self.draw_end
+            "end": self.draw_end,
+            "chameleon": self.draw_game_with_highlight  # Use the same draw method with highlight
         }
         draw_handlers.get(self.state, lambda: None)()
 
@@ -186,6 +217,17 @@ class App:
         self.draw_hand_cards()
         self.draw_table_card_slots()
         self.draw_table_cards()
+
+    def draw_game_with_highlight(self):
+        self.draw_game()
+        self.highlight_table_cards()
+
+    def highlight_table_cards(self):
+        start_x = (SCREEN_WIDTH - (5 * cst.ASSET_W_BIG + 4 * 4)) // 2
+        y = 60
+        for i in range(len(self.table_cards)):
+            card_x = start_x + i * (cst.ASSET_W_BIG + 4)
+            pyxel.rectb(card_x - 1, y - 1, cst.ASSET_W_BIG + 2, cst.ASSET_H_BIG + 2, pyxel.COLOR_YELLOW)
 
     def draw_background(self):
         pyxel.rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, pyxel.COLOR_DARK_BLUE)
