@@ -37,7 +37,7 @@ class App:
         self.state = "menu"
         self.last_ai_action_time = time.time()
         self.animation_in_progress = False
-        self.chameleon_action = False  # New flag for chameleon action
+        self.chameleon = None
 
     def setup_players(self):
         self.strategies = {0: Max, 1: Max, 2: Max, 3: Max}
@@ -67,7 +67,7 @@ class App:
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             self.handle_mouse_click()
 
-        if self.state == "game" and not self.animation_in_progress and not self.chameleon_action:
+        if self.state == "game" and not self.animation_in_progress:
             self.update_game()
 
         self.update_animations()
@@ -78,7 +78,8 @@ class App:
             "menu": self.handle_menu_click,
             "submenu": self.handle_submenu_click,
             "end": self.handle_end_click,
-            "chameleon": self.handle_chameleon_click  # New handler for chameleon state
+            "chameleon": self.handle_chameleon_click,  # New handler for chameleon state
+            "parrot": self.handle_parrot_click
         }
         click_handlers.get(self.state, lambda x, y: None)(x, y)
 
@@ -105,21 +106,42 @@ class App:
         start_x = (SCREEN_WIDTH - (5 * cst.ASSET_W_BIG + 4 * 4)) // 2
         y_pos = 60
 
+        clicked_on_card = False
         for i, card in enumerate(self.table_cards):
             card_x = start_x + i * (cst.ASSET_W_BIG + 4)
             if card_x <= x <= card_x + cst.ASSET_W_BIG and y_pos <= y <= y_pos + cst.ASSET_H_BIG:
                 self.perform_chameleon_action(card)
+                clicked_on_card = True
                 self.state = "game"
                 break
+
+        if not clicked_on_card:
+            self.state = "game"
+
+    def handle_parrot_click(self, x, y):
+        start_x = (SCREEN_WIDTH - (5 * cst.ASSET_W_BIG + 4 * 4)) // 2
+        y_pos = 60
+
+        clicked_on_card = False
+        for i, card in enumerate(self.table_cards):
+            card_x = start_x + i * (cst.ASSET_W_BIG + 4)
+            if card_x <= x <= card_x + cst.ASSET_W_BIG and y_pos <= y <= y_pos + cst.ASSET_H_BIG:
+                self.perform_chameleon_action(card)
+                clicked_on_card = True
+                self.state = "game"
+                break
+
+        if not clicked_on_card:
+            self.state = "game"
 
     def perform_chameleon_action(self, card):
         print(f"Chameleon action performed on card {card.card_value}")
         # Add logic to perform the card's action
-        chameleon = ANIMAL_MAPPING[ANIMALS.CHAMELEON](self.player_index)
+        chameleon = self.chameleon
         chameleon.action = ANIMAL_MAPPING[card.card_value].action
-        self.game_runner.update_game_state(chameleon)
+        self.play_card(self.chameleon, self.chameleon.x, self.chameleon.y)
+        self.chameleon = None
         self.update_game_state()
-        self.chameleon_action = False
 
     def update_game(self):
         if self.finished:
@@ -149,18 +171,18 @@ class App:
                 if card_x <= x <= card_x + cst.ASSET_W_BIG and hand_y <= y <= hand_y + cst.ASSET_H_BIG:
                     print(f"Player clicked on card {card.card_value} at ({card_x}, {hand_y})")
                     if card.card_value == ANIMALS.CHAMELEON:  # Assuming CHAMELEON is the identifier
-                        self.chameleon_action = True
                         self.state = "chameleon"
+                        self.chameleon = card
                     else:
-                        self.play_card(card, card_x, hand_y, i)
+                        self.play_card(card, card_x, hand_y)
                     break
 
-    def play_card(self, card, card_x, card_y, index):
+    def play_card(self, card, card_x, card_y):
         self.animation_in_progress = True
         target_x, target_y = self.get_table_target_position()
         card.start_move(card_x, card_y, target_x, target_y, self.on_card_animation_complete)
         self.animating_cards.append(card)
-        self.hand_cards.pop(index)
+        self.hand_cards.pop(self.hand_cards.index(card))
 
     def on_card_animation_complete(self, card, owner=None):
         print(f"Card {card.card_value} animation complete")
