@@ -8,6 +8,7 @@ from safari.frontend import constants as cst
 from safari.stacks.shuffle import init, ANIMAL_MAPPING
 from safari.players.strategies import Max, Player
 from safari.safari import GameRunner
+from safari.cards.base import ANIMALS
 
 SCREEN_WIDTH = 200
 SCREEN_HEIGHT = 150
@@ -19,6 +20,7 @@ PLAYER_START_POSITIONS = {
     2: (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 16),  # Top
     3: (0, SCREEN_HEIGHT // 2),  # Left
 }
+
 
 class App:
     def __init__(self):
@@ -103,22 +105,19 @@ class App:
         start_x = (SCREEN_WIDTH - (5 * cst.ASSET_W_BIG + 4 * 4)) // 2
         y_pos = 60
 
-        clicked_on_card = False
         for i, card in enumerate(self.table_cards):
             card_x = start_x + i * (cst.ASSET_W_BIG + 4)
             if card_x <= x <= card_x + cst.ASSET_W_BIG and y_pos <= y <= y_pos + cst.ASSET_H_BIG:
                 self.perform_chameleon_action(card)
-                clicked_on_card = True
+                self.state = "game"
                 break
-
-        if not clicked_on_card:
-            self.chameleon_action = False
-            self.state = "game"
 
     def perform_chameleon_action(self, card):
         print(f"Chameleon action performed on card {card.card_value}")
         # Add logic to perform the card's action
-        self.game_runner.update_game_state(ANIMAL_MAPPING[card.card_value](self.player_index))
+        chameleon = ANIMAL_MAPPING[ANIMALS.CHAMELEON](self.player_index)
+        chameleon.action = ANIMAL_MAPPING[card.card_value].action
+        self.game_runner.update_game_state(chameleon)
         self.update_game_state()
         self.chameleon_action = False
 
@@ -142,14 +141,14 @@ class App:
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             x, y = pyxel.mouse_x, pyxel.mouse_y
             hand_start_x = (SCREEN_WIDTH - (
-                        len(self.hand_cards) * cst.ASSET_W_BIG + (len(self.hand_cards) - 1) * 4)) // 2
+                    len(self.hand_cards) * cst.ASSET_W_BIG + (len(self.hand_cards) - 1) * 4)) // 2
             hand_y = SCREEN_HEIGHT - cst.ASSET_H_BIG - 5
 
             for i, card in enumerate(self.hand_cards):
                 card_x = hand_start_x + i * (cst.ASSET_W_BIG + 4)
                 if card_x <= x <= card_x + cst.ASSET_W_BIG and hand_y <= y <= hand_y + cst.ASSET_H_BIG:
                     print(f"Player clicked on card {card.card_value} at ({card_x}, {hand_y})")
-                    if card.card_value == 'CHAMELEON':  # Assuming CHAMELEON is the identifier
+                    if card.card_value == ANIMALS.CHAMELEON:  # Assuming CHAMELEON is the identifier
                         self.chameleon_action = True
                         self.state = "chameleon"
                     else:
