@@ -4,20 +4,22 @@ import time
 
 from safari.frontend.frontend import TableCard
 from safari.frontend.constants import PLAYER_COLORS
+from safari.frontend import constants as cst
 from safari.stacks.shuffle import init, ANIMAL_MAPPING
 from safari.players.strategies import Max, Player
 from safari.safari import GameRunner
 
-SCREEN_WIDTH = 120
-SCREEN_HEIGHT = 160
+SCREEN_WIDTH = 200
+SCREEN_HEIGHT = 150
 AI_DELAY = 0.5  # Half a second delay for AI players
 
 PLAYER_START_POSITIONS = {
-    0: (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 16),  # Bottom
-    1: (0, SCREEN_HEIGHT // 2),  # Left
-    2: (SCREEN_WIDTH // 2, 0),  # Top
-    3: (SCREEN_WIDTH - 16, SCREEN_HEIGHT // 2),  # Right
+    0: (SCREEN_WIDTH // 2, 0),  # Bottom
+    1: (SCREEN_WIDTH - 16, SCREEN_HEIGHT // 2),  # Right
+    2: (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 16),  # Top
+    3: (0, SCREEN_HEIGHT // 2),  # Left
 }
+
 
 class App:
     def __init__(self):
@@ -38,6 +40,8 @@ class App:
     def setup_players(self):
         self.strategies = {0: Max, 1: Max, 2: Max, 3: Max}
         self.player_index = random.choice(list(self.strategies.keys()))
+        self.player_start_positions = {(i - self.player_index) % 4: position for i, position in
+                                       PLAYER_START_POSITIONS.items()}
         self.strategies[self.player_index] = Player
 
     def setup_game(self):
@@ -113,12 +117,13 @@ class App:
     def handle_player_move(self):
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             x, y = pyxel.mouse_x, pyxel.mouse_y
-            hand_start_x = (SCREEN_WIDTH - (len(self.hand_cards) * 16 + (len(self.hand_cards) - 1) * 4)) // 2
-            hand_y = 140
+            hand_start_x = (SCREEN_WIDTH - (
+                        len(self.hand_cards) * cst.ASSET_W_BIG + (len(self.hand_cards) - 1) * 4)) // 2
+            hand_y = SCREEN_HEIGHT - cst.ASSET_H_BIG - 5
 
             for i, card in enumerate(self.hand_cards):
-                card_x = hand_start_x + i * (16 + 4)
-                if card_x <= x <= card_x + 16 and hand_y <= y <= hand_y + 16:
+                card_x = hand_start_x + i * (cst.ASSET_W_BIG + 4)
+                if card_x <= x <= card_x + cst.ASSET_W_BIG and hand_y <= y <= hand_y + cst.ASSET_H_BIG:
                     print(f"Player clicked on card {card.card_value} at ({card_x}, {hand_y})")
                     self.play_card(card, card_x, hand_y, i)
                     break
@@ -137,15 +142,15 @@ class App:
         self.animation_in_progress = False
 
     def animate_card_move(self, card_value, owner):
-        start_x, start_y = PLAYER_START_POSITIONS[owner]
+        start_x, start_y = self.player_start_positions[owner]
         target_x, target_y = self.get_table_target_position()
         card = TableCard(card_value, owner)
         card.start_move(start_x, start_y, target_x, target_y, self.on_card_animation_complete)
         self.animating_cards.append(card)
 
     def get_table_target_position(self):
-        start_x = (SCREEN_WIDTH - (5 * 16 + 4 * 4)) // 2
-        return start_x + len(self.table_cards) * (16 + 4), 60
+        start_x = (SCREEN_WIDTH - (5 * cst.ASSET_W_BIG + 4 * 4)) // 2
+        return start_x + len(self.table_cards) * (cst.ASSET_W_BIG + 4), 60
 
     def update_animations(self):
         for card in self.animating_cards:
@@ -165,7 +170,7 @@ class App:
         draw_handlers.get(self.state, lambda: None)()
 
         for card in self.animating_cards:
-            card.draw_small()
+            card.draw_big()
 
     def draw_menu(self):
         self.draw_text_centered(35, 30, "Main Menu", pyxel.COLOR_WHITE)
@@ -186,20 +191,20 @@ class App:
         pyxel.rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, pyxel.COLOR_DARK_BLUE)
 
     def draw_table_card_slots(self):
-        self.draw_card_slots((SCREEN_WIDTH - (5 * 16 + 4 * 4)) // 2, 60, 5)
+        self.draw_card_slots((SCREEN_WIDTH - (5 * cst.ASSET_W_BIG + 4 * 4)) // 2, 60, 5)
 
     def draw_table_cards(self):
-        start_x = (SCREEN_WIDTH - (5 * 16 + 4 * 4)) // 2
+        start_x = (SCREEN_WIDTH - (5 * cst.ASSET_W_BIG + 4 * 4)) // 2
         y = 60
         for i, card in enumerate(self.table_cards):
-            card_x = start_x + i * (16 + 4)
-            card.draw_small(card_x, y)
+            card_x = start_x + i * (cst.ASSET_W_BIG + 4)
+            card.draw_big(card_x, y)
 
     def draw_hand_cards(self):
-        hand_start_x = (SCREEN_WIDTH - (len(self.hand_cards) * 16 + (len(self.hand_cards) - 1) * 4)) // 2
-        hand_y = 140
+        hand_start_x = (SCREEN_WIDTH - (len(self.hand_cards) * cst.ASSET_W_BIG + (len(self.hand_cards) - 1) * 4)) // 2
+        hand_y = SCREEN_HEIGHT - cst.ASSET_H_BIG - 5
         for i, card in enumerate(self.hand_cards):
-            card.draw_small(hand_start_x + i * (16 + 4), hand_y)
+            card.draw_big(hand_start_x + i * (cst.ASSET_W_BIG + 4), hand_y)
 
     def draw_end(self):
         pyxel.cls(0)
@@ -219,8 +224,8 @@ class App:
 
     def draw_card_slots(self, start_x, y, count):
         for i in range(count):
-            x = start_x + i * (16 + 4)
-            pyxel.rectb(x, y, 16, 16, pyxel.COLOR_WHITE)
+            x = start_x + i * (cst.ASSET_W_BIG + 4)
+            pyxel.rectb(x, y, cst.ASSET_W_BIG, cst.ASSET_H_BIG, pyxel.COLOR_WHITE)
 
 
 # Run the application
