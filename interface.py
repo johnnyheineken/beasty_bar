@@ -1,36 +1,23 @@
 import random
 import pyxel
 import time
-from safari.cards.base import ANIMALS
 
+from safari.frontend.frontend import TableCard
+from safari.frontend.constants import PLAYER_COLORS
 from safari.stacks.shuffle import init, ANIMAL_MAPPING
 from safari.players.strategies import Max, Player
 from safari.safari import GameRunner
 
 SCREEN_WIDTH = 120
 SCREEN_HEIGHT = 160
-INVISBLE_COLOR = pyxel.COLOR_PURPLE
-
-
-MAPPING = {
-    ANIMALS.SKUNK: (0, 0),
-    ANIMALS.PARROT: (16, 0),
-    ANIMALS.KANGAROO: (32, 0),
-    ANIMALS.MONKEY: (48, 0),
-    ANIMALS.CHAMELEON: (0, 16),
-    ANIMALS.SEAL: (16, 16),
-    ANIMALS.ZEBRA: (32, 16),
-    ANIMALS.GAZELLE: (48, 16),
-    ANIMALS.SNAKE: (0, 32),
-    ANIMALS.CROC: (16, 32),
-    ANIMALS.HIPPO: (32, 32),
-    ANIMALS.LION: (48, 32),
-}
-
-PLAYER_COLORS = [pyxel.COLOR_RED, pyxel.COLOR_GREEN, pyxel.COLOR_YELLOW, pyxel.COLOR_NAVY]
-
 AI_DELAY = 0.5  # Half a second delay for AI players
 
+PLAYER_START_POSITIONS = {
+    0: (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 16),  # Bottom
+    1: (0, SCREEN_HEIGHT // 2),  # Left
+    2: (SCREEN_WIDTH // 2, 0),  # Top
+    3: (SCREEN_WIDTH - 16, SCREEN_HEIGHT // 2),  # Right
+}
 
 class App:
     def __init__(self):
@@ -41,147 +28,199 @@ class App:
         pyxel.run(self.update, self.draw)
 
     def reset_game(self):
-        strategies = {0: Max, 1: Max, 2: Max, 3: Max}
-        self.p = random.choice(list(strategies.keys()))
-        strategies[self.p] = Player
-        table = init(strategies=strategies)
-        self.gr = GameRunner(table)
-        self.table_cards = [i.value for i in self.gr.game_state['queue']]
-        self.hand_cards = [i.value for i in self.gr.game_state['table'][self.p]['hand']]
-        self.card_owners = []  # Track which player played each card
-        self.finished = False
+        self.setup_players()
+        self.setup_game()
+        self.update_game_state()
         self.state = "menu"
-        self.last_ai_action_time = time.time()  # Track time for AI actions
+        self.last_ai_action_time = time.time()
+        self.animation_in_progress = False
+
+    def setup_players(self):
+        self.strategies = {0: Max, 1: Max, 2: Max, 3: Max}
+        self.player_index = random.choice(list(self.strategies.keys()))
+        self.strategies[self.player_index] = Player
+
+    def setup_game(self):
+        table = init(strategies=self.strategies)
+        self.game_runner = GameRunner(table)
+        self.table_cards = []
+        self.hand_cards = []
+        self.animating_cards = []
+
+    def update_game_state(self):
+        self.table_cards = [TableCard(i.value, i.player) for i in self.game_runner.game_state['queue']]
+        self.hand_cards = [TableCard(i.value, self.player_index) for i in
+                           self.game_runner.game_state['table'][self.player_index]['hand']]
+        self.finished = self.check_if_game_finished()
+        print("Game state updated")
+
+    def check_if_game_finished(self):
+        return self.game_runner.game_state['finished']
 
     def update(self):
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
-            x = pyxel.mouse_x
-            y = pyxel.mouse_y
+            self.handle_mouse_click()
 
-            if self.state == "menu":
-                if 30 <= x <= 90 and 50 <= y <= 70:  # First button coordinates
-                    self.state = "submenu"
-                elif 30 <= x <= 90 <= y <= 110:  # Second button coordinates
-                    self.state = "game"
-            elif self.state == "submenu":
-                if 30 <= x <= 90 <= y <= 110:  # Back button coordinates
-                    self.state = "menu"
-            elif self.state == "end":
-                if 30 <= x <= 90 <= y <= 110:  # Play Again button coordinates
-                    self.reset_game()  # Restart the game
-                elif 30 <= x <= 90 and 120 <= y <= 140:  # Menu button coordinates
-                    self.state = "menu"
-
-        if self.state == "game":
+        if self.state == "game" and not self.animation_in_progress:
             self.update_game()
+
+        self.update_animations()
+
+    def handle_mouse_click(self):
+        x, y = pyxel.mouse_x, pyxel.mouse_y
+        click_handlers = {
+            "menu": self.handle_menu_click,
+            "submenu": self.handle_submenu_click,
+            "end": self.handle_end_click
+        }
+        click_handlers.get(self.state, lambda x, y: None)(x, y)
+
+    def handle_menu_click(self, x, y):
+        if 30 <= x <= 90:
+            if 50 <= y <= 70:
+                self.state = "submenu"
+            elif 90 <= y <= 110:
+                self.state = "game"
+
+    def handle_submenu_click(self, x, y):
+        if 30 <= x <= 90 and 90 <= y <= 110:
+            self.state = "menu"
+
+    def handle_end_click(self, x, y):
+        if 30 <= x <= 90:
+            if 90 <= y <= 110:
+                self.reset_game()
+                self.state = "game"
+            elif 120 <= y <= 140:
+                self.state = "menu"
 
     def update_game(self):
         if self.finished:
             self.state = "end"
             return
 
-        if self.gr.game_state['current_player'] != self.p:
-            current_time = time.time()
-            if current_time - self.last_ai_action_time >= AI_DELAY:
-                card = self.gr.get_played_card()
-                self.finished = self.gr.update_game_state(card)  # True if game is finished, otherwise False
-                # Add background and append to table cards
-                self.table_cards = [i.value for i in self.gr.game_state['queue']]
-                self.card_owners = [i.player for i in self.gr.game_state['queue']]
-                self.hand_cards = [i.value for i in self.gr.game_state['table'][self.p]['hand']]
-                self.last_ai_action_time = current_time  # Reset the last action time
+        if self.game_runner.game_state['current_player'] != self.player_index:
+            if time.time() - self.last_ai_action_time >= AI_DELAY:
+                self.execute_ai_move()
         else:
-            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
-                x = pyxel.mouse_x
-                y = pyxel.mouse_y
+            self.handle_player_move()
 
-                # Check if a hand card is clicked
-                hand_start_x = (120 - (len(self.hand_cards) * 16 + (len(self.hand_cards) - 1) * 4)) // 2
-                hand_y = 140  # Fixed y position for hand cards
+    def execute_ai_move(self):
+        card = self.game_runner.get_played_card()
+        self.animation_in_progress = True
+        self.animate_card_move(card.value, card.player)
 
-                for i, card in enumerate(self.hand_cards):
-                    card_x = hand_start_x + i * (16 + 4)
-                    if card_x <= x <= card_x + 16 and hand_y <= y <= hand_y + 16:
-                        # Add the clicked card to the table cards if there is space
+    def handle_player_move(self):
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+            x, y = pyxel.mouse_x, pyxel.mouse_y
+            hand_start_x = (SCREEN_WIDTH - (len(self.hand_cards) * 16 + (len(self.hand_cards) - 1) * 4)) // 2
+            hand_y = 140
 
-                        self.finished = self.gr.update_game_state(ANIMAL_MAPPING[card](self.p))
+            for i, card in enumerate(self.hand_cards):
+                card_x = hand_start_x + i * (16 + 4)
+                if card_x <= x <= card_x + 16 and hand_y <= y <= hand_y + 16:
+                    print(f"Player clicked on card {card.card_value} at ({card_x}, {hand_y})")
+                    self.play_card(card, card_x, hand_y, i)
+                    break
 
-                        self.table_cards = [i.value for i in self.gr.game_state['queue']]
-                        self.card_owners = [i.player for i in self.gr.game_state['queue']]
-                        self.hand_cards = [i.value for i in self.gr.game_state['table'][self.p]['hand']]
+    def play_card(self, card, card_x, card_y, index):
+        self.animation_in_progress = True
+        target_x, target_y = self.get_table_target_position()
+        card.start_move(card_x, card_y, target_x, target_y, self.on_card_animation_complete)
+        self.animating_cards.append(card)
+        self.hand_cards.pop(index)
 
-                        break
+    def on_card_animation_complete(self, card, owner):
+        print(f"Card {card.card_value} animation complete")
+        self.game_runner.update_game_state(ANIMAL_MAPPING[card.card_value](owner))
+        self.update_game_state()
+        self.animation_in_progress = False
+
+    def animate_card_move(self, card_value, owner):
+        start_x, start_y = PLAYER_START_POSITIONS[owner]
+        target_x, target_y = self.get_table_target_position()
+        card = TableCard(card_value, owner)
+        card.start_move(start_x, start_y, target_x, target_y, self.on_card_animation_complete)
+        self.animating_cards.append(card)
+
+    def get_table_target_position(self):
+        start_x = (SCREEN_WIDTH - (5 * 16 + 4 * 4)) // 2
+        return start_x + len(self.table_cards) * (16 + 4), 60
+
+    def update_animations(self):
+        for card in self.animating_cards:
+            card.update_position()
+        self.animating_cards = [card for card in self.animating_cards if card.is_moving]
+        if not self.animating_cards:
+            self.animation_in_progress = False
 
     def draw(self):
         pyxel.cls(0)
-        if self.state == "menu":
-            self.draw_menu()
-        elif self.state == "submenu":
-            self.draw_submenu()
-        elif self.state == "game":
-            self.draw_game()
-        elif self.state == "end":
-            self.draw_end()
+        draw_handlers = {
+            "menu": self.draw_menu,
+            "submenu": self.draw_submenu,
+            "game": self.draw_game,
+            "end": self.draw_end
+        }
+        draw_handlers.get(self.state, lambda: None)()
+
+        for card in self.animating_cards:
+            card.draw_small()
 
     def draw_menu(self):
-        pyxel.text(35, 30, "Main Menu", pyxel.COLOR_WHITE)
-        pyxel.rect(30, 50, 60, 20, pyxel.COLOR_RED)
-        pyxel.text(45, 57, "Submenu", pyxel.COLOR_WHITE)
-        pyxel.rect(30, 90, 60, 20, pyxel.COLOR_RED)
-        pyxel.text(40, 97, "Start Game", pyxel.COLOR_WHITE)
+        self.draw_text_centered(35, 30, "Main Menu", pyxel.COLOR_WHITE)
+        self.draw_button(30, 50, "Submenu")
+        self.draw_button(30, 90, "Start Game")
 
     def draw_submenu(self):
-        pyxel.text(40, 30, "Submenu", pyxel.COLOR_WHITE)
-        pyxel.rect(30, 90, 60, 20, pyxel.COLOR_RED)
-        pyxel.text(50, 97, "Back", pyxel.COLOR_WHITE)
+        self.draw_text_centered(40, 30, "Submenu", pyxel.COLOR_WHITE)
+        self.draw_button(30, 90, "Back")
 
     def draw_game(self):
-        pyxel.cls(0)
         self.draw_background()
         self.draw_hand_cards()
         self.draw_table_card_slots()
         self.draw_table_cards()
 
     def draw_background(self):
-        pyxel.rect(0, 0, 120, 160, pyxel.COLOR_DARK_BLUE)  # Dark blue background
+        pyxel.rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, pyxel.COLOR_DARK_BLUE)
 
     def draw_table_card_slots(self):
-        start_x = (120 - (5 * 16 + 4 * 4)) // 2
-        y = 60  # Fixed y position for table cards
-
-        for i in range(5):
-            x = start_x + i * (16 + 4)
-            pyxel.rectb(x, y, 16, 16, pyxel.COLOR_WHITE)  # Draw rectangle slots
+        self.draw_card_slots((SCREEN_WIDTH - (5 * 16 + 4 * 4)) // 2, 60, 5)
 
     def draw_table_cards(self):
-        start_x = (120 - (5 * 16 + 4 * 4)) // 2
-        y = 60  # Fixed y position for table cards
-
+        start_x = (SCREEN_WIDTH - (5 * 16 + 4 * 4)) // 2
+        y = 60
         for i, card in enumerate(self.table_cards):
-            x = start_x + i * (16 + 4)
-            owner_color = PLAYER_COLORS[self.card_owners[i]]
-            pyxel.rect(x, y, 16, 16, owner_color)  # Draw the player's color background
-            pyxel.blt(x, y, 0, MAPPING[card][0], MAPPING[card][1], 16, 16, INVISBLE_COLOR)
+            card_x = start_x + i * (16 + 4)
+            card.draw_small(card_x, y)
 
     def draw_hand_cards(self):
-        start_x = (120 - (len(self.hand_cards) * 16 + (len(self.hand_cards) - 1) * 4)) // 2
-        y = 140  # Fixed y position for hand cards
+        hand_start_x = (SCREEN_WIDTH - (len(self.hand_cards) * 16 + (len(self.hand_cards) - 1) * 4)) // 2
+        hand_y = 140
         for i, card in enumerate(self.hand_cards):
-            x = start_x + i * (16 + 4)
-            # Draw player's color background
-            pyxel.rect(x, y, 16, 16, PLAYER_COLORS[self.p])
-            pyxel.blt(x, y, 0, MAPPING[card][0], MAPPING[card][1], 16, 16, INVISBLE_COLOR)
+            card.draw_small(hand_start_x + i * (16 + 4), hand_y)
 
     def draw_end(self):
         pyxel.cls(0)
-        results = self.gr.game_state['results']
-        pyxel.text(35, 30, "Game Over", pyxel.COLOR_WHITE)
+        results = self.game_runner.game_state['results']
+        self.draw_text_centered(35, 30, "Game Over", pyxel.COLOR_WHITE)
         for i, (player, points) in enumerate(results.items()):
             pyxel.text(20, 50 + i * 10, f"Player {player}: {points} points", PLAYER_COLORS[player])
-        pyxel.rect(30, 90, 60, 20, pyxel.COLOR_RED)
-        pyxel.text(40, 97, "Play Again", pyxel.COLOR_WHITE)
-        pyxel.rect(30, 120, 60, 20, pyxel.COLOR_RED)
-        pyxel.text(45, 127, "Menu", pyxel.COLOR_WHITE)
+        self.draw_button(30, 90, "Play Again")
+        self.draw_button(30, 120, "Menu")
+
+    def draw_text_centered(self, x, y, text, color):
+        pyxel.text(x, y, text, color)
+
+    def draw_button(self, x, y, text):
+        pyxel.rect(x, y, 60, 20, pyxel.COLOR_RED)
+        pyxel.text(x + 10, y + 7, text, pyxel.COLOR_WHITE)
+
+    def draw_card_slots(self, start_x, y, count):
+        for i in range(count):
+            x = start_x + i * (16 + 4)
+            pyxel.rectb(x, y, 16, 16, pyxel.COLOR_WHITE)
 
 
 # Run the application

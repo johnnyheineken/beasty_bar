@@ -6,16 +6,16 @@ from safari.cards import NAMES, PLAYERS, SHORT_NAMES
 class Card:
     value: int
     point_value: int
+    last_action: str
     repeating_action: bool = False
-    laying: bool = False
 
     def __init__(self, player):
         self.player = player
         self.name = NAMES[self.__class__.__name__]
         self.short_name = SHORT_NAMES[self.__class__.__name__] + PLAYERS[self.player]
         self.long_name = f'{self.name} {self.value} {PLAYERS[self.player]} ' \
-               f'({self.point_value}pt)' \
-               f'{" - repeating" if self.repeating_action else ""}'
+                         f'({self.point_value}pt)' \
+                         f'{" - repeating" if self.repeating_action else ""}'
 
     def action(self, queue):
         raise NotImplementedError
@@ -27,7 +27,7 @@ class Card:
         return f'{self.__class__.__name__}({self.player})'
 
     def __eq__(self, other):
-        return (self.name==other.name) & (self.player == other.player)
+        return (self.name == other.name) & (self.player == other.player)
 
 
 class ANIMALS(int, Enum):

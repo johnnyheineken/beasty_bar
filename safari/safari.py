@@ -29,10 +29,10 @@ class GameRunner:
 
     def update_game_state(self, card):
 
-        print('\n\n' + '#' * 40)
-        print(f'{self.game_state['current_player']=}')
-        print(f'{self.game_state['players']=}')
-        print('#' * 40)
+        # print('\n\n' + '#' * 40)
+        # print(f'{self.game_state['current_player']=}')
+        # print(f'{self.game_state['players']=}')
+        # print('#' * 40)
 
         queue, dropped = self.game_state['queue'].resolve(card)
         self.game_state['queue'] = queue
@@ -40,7 +40,7 @@ class GameRunner:
 
         self.game_state['queue'] = self.evaluate_queue(queue)
 
-        print(f'{self.game_state['queue']=}')
+        # print(f'{self.game_state['queue']=}')
 
         self.remove_played_card_from_hand(card)
         self.draw_card()
@@ -97,7 +97,7 @@ class GameRunner:
         cards = self.game_state['table'][player]
         hand = cards["hand"]
 
-        print(f'{hand=}')
+        # print(f'{hand=}')
         if isinstance(cards['strategy'], Player):
 
             print(self.game_state['queue'])
@@ -128,7 +128,7 @@ class GameRunner:
                 tries += 1
                 continue
             card = ANIMAL_MAPPING[played_card](player)
-            print(card)
+            # print(card)
             if card not in hand:
                 print('not in your hand')
                 tries += 1
