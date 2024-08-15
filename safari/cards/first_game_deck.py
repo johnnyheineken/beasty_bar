@@ -274,6 +274,5 @@ class Skunk(Card):
             to_drop = unique[-2:]
         for i in to_drop:
             dropped += queue.drop_card_values(i)
-
         queue += [self]
         return Queue(queue), dropped

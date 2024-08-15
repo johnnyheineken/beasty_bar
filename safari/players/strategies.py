@@ -1,4 +1,5 @@
 def strategy_max(cards):
+
     played = cards[cards.index(max(cards, key=lambda x: x.value))]
 
     return played

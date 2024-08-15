@@ -6,7 +6,7 @@ from safari.cards import NAMES, PLAYERS, SHORT_NAMES
 class Card:
     value: int
     point_value: int
-    last_action: str
+    last_action: dict
     repeating_action: bool = False
 
     def __init__(self, player):
