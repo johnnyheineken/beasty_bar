@@ -474,6 +474,31 @@ input {
   100% { transform: translateX(-50%) scale(.9) translateY(-26px); opacity: 0; }
 }
 
+/* seal: the whole table turns around — the new (reversed) order is
+   rendered first, then spun in from upside down, so mid-animation the
+   line looks exactly like the old order being rotated */
+#table.seal-spin { animation: sealSpin 1.15s cubic-bezier(.34,.9,.27,1); }
+@keyframes sealSpin {
+  0%   { transform: rotate(180deg) scale(.93); }
+  70%  { transform: rotate(-7deg) scale(1.015); }
+  100% { transform: rotate(0) scale(1); }
+}
+
+.seal-banner .gb-top { animation: sealBob .5s ease-in-out 2 alternate; }
+@keyframes sealBob { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
+
+.splash {
+  position: fixed;
+  font-size: 24px;
+  pointer-events: none;
+  animation: splashOut 1.2s ease-out forwards;
+}
+@keyframes splashOut {
+  0% { transform: translate(0, 0) scale(.5); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1.1); opacity: 0; }
+}
+
 .confetto {
   position: fixed;
   width: 9px; height: 13px;

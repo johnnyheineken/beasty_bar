@@ -462,6 +462,39 @@ function handCardEl(card) {
   return el;
 }
 
+/* ---------- seal: the table turns around ---------- */
+
+function spinTable() {
+  if (navigator.vibrate) navigator.vibrate(80);
+  const table = $('#table');
+  table.classList.remove('seal-spin');
+  void table.offsetWidth;
+  table.classList.add('seal-spin');
+  setTimeout(() => table.classList.remove('seal-spin'), 1300);
+
+  const layer = $('#fly-layer');
+  const banner = document.createElement('div');
+  banner.className = 'gate-banner seal-banner';
+  banner.innerHTML = '<div class="gb-top">🦭</div><div class="gb-who">🚪 ⇄ ⛔</div>';
+  layer.appendChild(banner);
+  setTimeout(() => banner.remove(), 1500);
+
+  const rect = table.getBoundingClientRect();
+  for (let i = 0; i < 10; i++) {
+    const drop = document.createElement('div');
+    drop.className = 'splash';
+    drop.textContent = '💦';
+    const angle = (i / 10) * 2 * Math.PI;
+    drop.style.left = (rect.left + rect.width / 2 - 12) + 'px';
+    drop.style.top = (rect.top + rect.height / 2 - 12) + 'px';
+    drop.style.setProperty('--dx', `${Math.cos(angle) * rect.width * 0.55}px`);
+    drop.style.setProperty('--dy', `${Math.sin(angle) * rect.height * 0.45}px`);
+    drop.style.animationDelay = `${Math.random() * 0.12}s`;
+    layer.appendChild(drop);
+    setTimeout(() => drop.remove(), 1400);
+  }
+}
+
 /* ---------- gate celebration ---------- */
 
 const CONFETTI_COLORS = ['#f5b942', '#ff8e3c', '#3b82f6', '#22c55e', '#ef4444', '#fff'];
@@ -605,6 +638,12 @@ function renderQueue() {
     box.appendChild(slot);
   }
 
+  // a seal swaps the gate and the exit: spin the whole table instead of
+  // sliding cards past each other — like turning the real table around
+  const sealEntry = freshEntries.find(e => e.played.name === 'Seal' || e.as === 'Seal');
+  if (sealEntry) {
+    spinTable();
+  } else {
   // FLIP step 2: slide moved cards; let the just-played card arrive
   // visibly from its owner's chip
   requestAnimationFrame(() => {
@@ -638,6 +677,7 @@ function renderQueue() {
       }
     }
   });
+  }
 
   // fly outgoing animals to the piles; celebrate when the gate opens
   for (const entry of freshEntries) {
