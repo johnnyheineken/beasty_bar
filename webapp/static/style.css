@@ -489,3 +489,24 @@ input {
 
 #end-table { margin: 12px auto; border-collapse: collapse; width: 100%; }
 #end-table td { padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 14px; text-align: left; }
+
+/* ---------- leaderboard / games ---------- */
+
+.home-links { display: flex; gap: 10px; margin-top: 14px; }
+.home-links button { flex: 1; }
+
+#board-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#board-head h2 { margin: 0; }
+#board-head button { min-width: 44px; }
+#board-table { margin: 14px auto; border-collapse: collapse; width: 100%; }
+#board-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: 14px; text-align: left; }
+
+#games-list {
+  max-height: 50vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  display: flex; flex-direction: column; gap: 8px; margin: 12px 0;
+}
+.game-row {
+  background: var(--panel-2); border-radius: 10px; padding: 8px 10px;
+  font-size: 13px; line-height: 1.5; text-align: left;
+}
+.game-when { color: var(--muted); font-size: 12px; }

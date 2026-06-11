@@ -21,9 +21,11 @@ from logic import GameRunner  # noqa: E402
 from safari.cards.base import ANIMALS  # noqa: E402
 from safari.cards.first_game_deck import Chameleon  # noqa: E402
 from safari.cards.new_beasts_deck import Penguin, Vulture  # noqa: E402
+from safari.game_state import GameState  # noqa: E402
 from safari.players import bots  # noqa: E402
 from safari.players.strategies import Max  # noqa: E402
 from safari.stacks.shuffle import init  # noqa: E402
+from webapp import db  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 AI_DELAY = 0.8          # seconds between AI moves
@@ -73,7 +75,60 @@ class Room:
         self.version = 0
         self.last_touch = time.time()
         self.last_ai_move = 0.0
+        self.recorded = False     # finished game archived in the database
+        self.saved_version = -1
         self.host_token, _ = self.claim_seats(local_names)
+
+    # ---- persistence ----
+
+    def to_doc(self):
+        return {
+            "id": self.id,
+            "deck": self.deck,
+            "seats": self.seats,
+            "log": self.log,
+            "version": self.version,
+            "last_touch": self.last_touch,
+            "recorded": self.recorded,
+            "host_token": self.host_token,
+            "state": self.state.to_json(),
+        }
+
+    @classmethod
+    def from_doc(cls, doc):
+        room = object.__new__(cls)
+        gs = GameState.from_json(doc["state"])
+        room.runner = GameRunner(gs.table)
+        room.runner.game_state = gs
+        room.id = doc["id"]
+        room.deck = doc["deck"]
+        room.seats = doc["seats"]
+        room.log = doc["log"]
+        room.version = doc["version"]
+        room.last_touch = doc["last_touch"]
+        room.recorded = doc.get("recorded", False)
+        room.host_token = doc.get("host_token")
+        room.last_ai_move = 0.0
+        room.saved_version = room.version
+        return room
+
+    def persist(self):
+        """Save a snapshot and archive the game once it has finished."""
+        if self.state.finished and not self.recorded:
+            self.recorded = True
+            gs = self.state
+            gs.update_results()
+            winners = gs.get_winners()
+            db.record_game(self.id, self.deck, gs.scoring, [
+                {"seat": i, "name": s["name"], "is_ai": s["is_ai"],
+                 "difficulty": s.get("difficulty"),
+                 "score": gs.results.get(i, 0), "won": i in winners}
+                for i, s in enumerate(self.seats)
+            ])
+            self.bump()
+        if self.version != self.saved_version:
+            self.saved_version = self.version
+            db.save_room(self.id, self.to_doc(), self.last_touch)
 
     # ---- seats ----
 
@@ -329,6 +384,12 @@ LOCK = threading.Lock()
 def get_room(room_id):
     room = ROOMS.get(room_id)
     if room is None:
+        # a server restart wiped memory — sessions live on in the database
+        doc = db.load_room(room_id) if room_id else None
+        if doc is not None:
+            room = Room.from_doc(doc)
+            ROOMS[room_id] = room
+    if room is None:
         raise GameError("this game no longer exists — the host can start a new one")
     return room
 
@@ -337,6 +398,7 @@ def prune_rooms():
     now = time.time()
     for rid in [r for r, room in ROOMS.items() if now - room.last_touch > ROOM_TTL]:
         del ROOMS[rid]
+    db.delete_rooms_older_than(now - ROOM_TTL)
 
 
 CONTENT_TYPES = {
@@ -405,11 +467,21 @@ class Handler(BaseHTTPRequestHandler):
                 with LOCK:
                     room = get_room(q.get("room", ""))
                     room.tick()
+                    room.persist()
                     self._send_json(room.serialize(q.get("token")))
             except GameError as exc:
                 self._send_json({"error": str(exc)}, status=404)
             except Exception as exc:  # never kill the connection on a bug
                 self._send_json({"error": f"server error: {exc}"}, status=500)
+        elif path == "/api/leaderboard":
+            q = self._query()
+            month = q.get("month") or time.strftime("%Y-%m")
+            try:
+                self._send_json({"month": month, "rows": db.leaderboard(month)})
+            except Exception as exc:
+                self._send_json({"error": f"bad month: {exc}"}, status=400)
+        elif path == "/api/games":
+            self._send_json({"games": db.recent_games()})
         elif path == "/":
             self._send_file("index.html")
         else:
@@ -437,16 +509,19 @@ class Handler(BaseHTTPRequestHandler):
                         difficulty=body.get("difficulty", "medium"),
                     )
                     ROOMS[room.id] = room
+                    room.persist()
                     seats = room.seats_of(room.host_token)
                     self._send_json({"room": room.id, "seats": seats, "token": room.host_token})
                 elif path == "/api/join":
                     room = get_room(body.get("room", ""))
                     local = body.get("local") or [body.get("name", "")]
                     token, seats = room.claim_seats(local)
+                    room.persist()
                     self._send_json({"room": room.id, "seats": seats, "token": token})
                 elif path == "/api/play":
                     room = get_room(body.get("room", ""))
                     room.play_human(body.get("token"), body["card"], body.get("params"))
+                    room.persist()
                     self._send_json(room.serialize(body.get("token")))
                 elif path == "/api/preview":
                     room = get_room(body.get("room", ""))
@@ -460,6 +535,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main(port=8000):
+    db.init()
     server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     print(f"Beasty Bar running on http://localhost:{port}")
     server.serve_forever()

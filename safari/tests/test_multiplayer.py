@@ -115,3 +115,71 @@ def test_serialize_personalizes_hands():
     assert host_view["you_seats"] == [0] and len(host_view["hands"]["0"]) == 4
     assert friend_view["you_seats"] == [1] and "0" not in friend_view["hands"]
     assert stranger_view["you_seats"] == [] and stranger_view["hands"] == {}
+
+
+# ---------- persistence (db-backed sessions, archive, leaderboard) ----------
+
+import tempfile
+import time as _time
+
+
+def _fresh_db(tmp_path):
+    server.db._conn = None
+    server.db.init(str(tmp_path / "test.db"))
+
+
+def test_room_survives_restart(tmp_path):
+    _fresh_db(tmp_path)
+    room = make_room(total=2, local=["Host"], ai=1)
+    gs = room.state
+    card = gs.table[0]["hand"][0]
+    room.play_human(room.host_token, int(card.value), {})
+    room.persist()
+    before = room.serialize(room.host_token)
+
+    # simulate a server restart: rebuild the room from the database
+    restored = server.Room.from_doc(server.db.load_room(room.id))
+    after = restored.serialize(room.host_token)
+    assert after["queue"] == before["queue"]
+    assert after["hands"] == before["hands"]
+    assert after["log_total"] == before["log_total"]
+    assert restored.seats == room.seats
+
+    # the old token still plays in the restored room
+    restored.last_ai_move = 0
+    restored.tick()  # AI turn
+    gs2 = restored.state
+    assert gs2.current_player == 0
+    card = gs2.table[0]["hand"][0]
+    restored.play_human(room.host_token, int(card.value), {})
+
+
+def test_finished_game_recorded_and_leaderboard(tmp_path):
+    _fresh_db(tmp_path)
+    room = make_room(total=2, local=["Winner", "Loser"], ai=0, deck='new_beasts')
+    gs = room.state
+    for _ in range(100):
+        if gs.finished:
+            break
+        p = gs.current_player
+        hand = gs.table[p]["hand"]
+        if hand:
+            room.play_human(room.host_token, int(hand[0].value), {})
+        else:
+            room._skip_finished()
+    assert gs.finished
+    room.persist()
+    assert room.recorded
+    room.persist()  # idempotent: no double recording
+
+    games = server.db.recent_games()
+    assert len(games) == 1
+    assert games[0]["deck"] == "new_beasts"
+    assert {p["name"] for p in games[0]["players"]} == {"Winner", "Loser"}
+    assert sum(p["won"] for p in games[0]["players"]) >= 1
+
+    month = _time.strftime("%Y-%m")
+    board = server.db.leaderboard(month)
+    assert {r["name"] for r in board} == {"Winner", "Loser"}
+    assert board[0]["wins"] >= board[-1]["wins"]
+    assert server.db.leaderboard("2001-01") == []

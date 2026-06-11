@@ -270,6 +270,59 @@ $('#again-btn').onclick = () => {
   show('home');
 };
 
+/* ---------- leaderboard & game history ---------- */
+
+let boardMonth = new Date().toISOString().slice(0, 7);
+
+function shiftMonth(ym, delta) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+async function showBoard() {
+  $('#board-overlay').classList.remove('hidden');
+  $('#board-month').textContent = '🏆 ' + boardMonth;
+  try {
+    const data = await api(`/api/leaderboard?month=${boardMonth}`);
+    const rows = data.rows.map((r, i) => {
+      const medal = ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+      return `<tr><td>${medal}</td><td>${r.name}</td>` +
+        `<td>🏆${r.wins}</td><td>🏅${r.points}</td><td>🎲${r.games}</td></tr>`;
+    });
+    $('#board-table').innerHTML = rows.join('') ||
+      '<tr><td>No finished games this month — go play! 🍹</td></tr>';
+  } catch (e) {
+    $('#board-table').innerHTML = `<tr><td>⚠️ ${e.message}</td></tr>`;
+  }
+}
+
+$('#board-btn').onclick = showBoard;
+$('#board-prev').onclick = () => { boardMonth = shiftMonth(boardMonth, -1); showBoard(); };
+$('#board-next').onclick = () => { boardMonth = shiftMonth(boardMonth, 1); showBoard(); };
+$('#board-close').onclick = () => $('#board-overlay').classList.add('hidden');
+
+$('#games-btn').onclick = async () => {
+  $('#games-overlay').classList.remove('hidden');
+  try {
+    const data = await api('/api/games');
+    const items = data.games.map((g) => {
+      const when = new Date(g.finished_at * 1000).toLocaleString(undefined,
+        { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const deck = g.deck === 'classic' ? '🦁' : g.deck === 'new_beasts' ? '🦏' : '🔀';
+      const unit = g.scoring === 'points' ? '🏅' : '🍸';
+      const players = g.players.map(p =>
+        `${p.won ? '🏆' : ''}${p.name} ${unit}${p.score}`).join(' · ');
+      return `<div class="game-row"><span class="game-when">${deck} ${when}</span><br>${players}</div>`;
+    });
+    $('#games-list').innerHTML = items.join('') ||
+      '<div class="game-row">No games yet 🍹</div>';
+  } catch (e) {
+    $('#games-list').innerHTML = `<div class="game-row">⚠️ ${e.message}</div>`;
+  }
+};
+$('#games-close').onclick = () => $('#games-overlay').classList.add('hidden');
+
 $('#help-btn').onclick = () => $('#help-overlay').classList.remove('hidden');
 $('#help-close').onclick = () => {
   localStorage.setItem('beasty_seen', '1');

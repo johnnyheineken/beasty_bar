@@ -59,6 +59,7 @@ class GameState:
         data['cards_in_thrash'] = [serialize_card(card) for card in self.cards_in_thrash]
         data['queue'] = [serialize_card(card) for card in self.queue]
         data['old_queue'] = [serialize_card(card) for card in self.old_queue]
+        data['last_queue_evaluation'] = None  # transient, holds raw Card objects
 
         serialized_table = {}
         for player, info in data['table'].items():
@@ -86,6 +87,9 @@ class GameState:
         data['cards_in_thrash'] = [deserialize_card(card) for card in data['cards_in_thrash']]
         data['queue'] = Queue([deserialize_card(card) for card in data['queue']])
         data['old_queue'] = Queue([deserialize_card(card) for card in data['old_queue']])
+        data['last_queue_evaluation'] = None
+        # JSON turns int dict keys into strings
+        data['results'] = {int(p): v for p, v in (data.get('results') or {}).items()}
 
         deserialized_table = {}
         for player, info in data['table'].items():

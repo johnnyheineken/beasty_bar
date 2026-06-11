@@ -55,7 +55,32 @@
       <button id="create-btn" class="cta">Create game 🍹</button>
       <div class="hint err" id="home-error"></div>
     </div>
+    <div class="home-links">
+      <button id="board-btn">🏆 Leaderboard</button>
+      <button id="games-btn">📜 Games</button>
+    </div>
   </section>
+
+  <!-- ============ LEADERBOARD / GAMES ============ -->
+  <div id="board-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <div id="board-head">
+        <button id="board-prev">◀</button>
+        <h2 id="board-month"></h2>
+        <button id="board-next">▶</button>
+      </div>
+      <table id="board-table"></table>
+      <button id="board-close" class="cta">✕ Close</button>
+    </div>
+  </div>
+
+  <div id="games-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>📜 Recent games</h2>
+      <div id="games-list"></div>
+      <button id="games-close" class="cta">✕ Close</button>
+    </div>
+  </div>
 
   <!-- ============ JOIN ============ -->
   <section id="screen-join" class="screen menu hidden">
