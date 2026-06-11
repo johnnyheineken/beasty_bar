@@ -474,6 +474,78 @@ input {
   100% { transform: translateX(-50%) scale(.9) translateY(-26px); opacity: 0; }
 }
 
+/* ---------- per-card drama ---------- */
+
+#table.shake { animation: tableShake .55s; }
+@keyframes tableShake {
+  10% { transform: translate(-5px, 1px) rotate(-.5deg); }
+  30% { transform: translate(6px, -2px) rotate(.5deg); }
+  50% { transform: translate(-4px, 2px) rotate(-.3deg); }
+  70% { transform: translate(3px, -1px) rotate(.3deg); }
+  90% { transform: translate(-1px, 0) rotate(0); }
+}
+
+.impact {
+  position: fixed;
+  pointer-events: none;
+  z-index: 32;
+  opacity: 0;
+  filter: drop-shadow(0 3px 5px rgba(0,0,0,.6));
+  animation: impactPop 1s forwards;
+}
+@keyframes impactPop {
+  0% { transform: scale(.2); opacity: 0; }
+  25% { transform: scale(1.45); opacity: 1; }
+  60% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(.9) translateY(-8px); opacity: 0; }
+}
+
+.ring {
+  position: fixed;
+  width: 24px; height: 24px;
+  border: 3px solid var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 31;
+  animation: ringOut .8s ease-out forwards;
+}
+@keyframes ringOut { to { transform: scale(8); opacity: 0; } }
+
+.actor {
+  position: fixed;
+  font-size: 44px;
+  pointer-events: none;
+  z-index: 33;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,.6));
+  transition: left .55s cubic-bezier(.45,0,.65,1), top .55s cubic-bezier(.45,0,.65,1);
+}
+.actor.chomp { animation: chomp .35s 3; }
+@keyframes chomp { 50% { transform: scale(1.3) rotate(-10deg); } }
+.actor.charge { animation: charge .6s 1; }
+@keyframes charge { 0% { transform: scale(.7); } 60% { transform: scale(1.35); } 100% { transform: scale(1.1); } }
+
+.qcard.hop { animation: hop .65s cubic-bezier(.3,1.4,.5,1); }
+@keyframes hop {
+  30% { transform: translateY(-20px) scale(1.07) rotate(-2deg); }
+  60% { transform: translateY(3px) scale(.98); }
+  100% { transform: none; }
+}
+
+.gas {
+  position: fixed;
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(110,231,110,.55) 0%, rgba(110,231,110,0) 70%);
+  pointer-events: none;
+  z-index: 30;
+  animation: gasPuff 1.4s ease-out forwards;
+}
+@keyframes gasPuff {
+  0% { transform: scale(.3); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
 /* seal: the whole table turns around — the new (reversed) order is
    rendered first, then spun in from upside down, so mid-animation the
    line looks exactly like the old order being rotated */

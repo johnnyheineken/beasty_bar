@@ -7,6 +7,7 @@ Uses only the standard library.
 """
 import copy
 import json
+import random
 import secrets
 import sys
 import threading
@@ -49,6 +50,11 @@ def card_json(card):
 
 
 AI_NAMES = {'easy': '🐣', 'medium': '🙂', 'hard': '🧠'}
+AI_POOL = [
+    "Bongo", "Ziggy", "Mojito", "Coco", "Lola", "Rambo", "Fifi", "Karel",
+    "Zorro", "Pablo", "Chico", "Dolly", "Gigi", "Spike", "Bruno", "Peppa",
+    "Olga", "Mango", "Tina", "Gusto", "Žofka", "Brutus", "Kiki", "Ferda",
+]
 
 
 class Room:
@@ -66,15 +72,16 @@ class Room:
         self.id = secrets.token_urlsafe(4)
         self.deck = deck
         open_seats = total - len(local_names) - len(ai_levels)
+        ai_names = random.sample(AI_POOL, len(ai_levels))
         self.seats = (
             [{"name": None, "token": None, "is_ai": False} for _ in local_names]
             + [{"name": None, "token": None, "is_ai": False} for _ in range(open_seats)]
-            + [{"name": f"AI {AI_NAMES[lvl]} {i + 1}", "token": None, "is_ai": True,
+            + [{"name": f"{ai_names[i]} {AI_NAMES[lvl]}", "token": None, "is_ai": True,
                 "difficulty": lvl}
                for i, lvl in enumerate(ai_levels)]
         )
         self.runner = GameRunner(init(strategies={i: Max for i in range(total)}, deck=deck))
-        self.state.scoring = 'count' if deck == 'classic' else 'points'
+        self.state.scoring = 'points'  # house rule: points decide every deck
         self.log = []
         self.version = 0
         self.last_touch = time.time()

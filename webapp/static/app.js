@@ -69,7 +69,7 @@ const TRAIT = {
   Bat: '💥', Vulture: '♻️', Seal: '🔄', Snake: '↕️', Dog: '↕️',
 };
 const DECK_HINTS = {
-  classic: 'The original 12 animals · most 🍸 wins',
+  classic: 'The original 12 animals · 🏅 points win',
   new_beasts: 'The 12 expansion animals · 🏅 points win',
   mixed: 'Random mix of both sets · 🏅 points win',
 };
@@ -462,6 +462,167 @@ function handCardEl(card) {
   return el;
 }
 
+/* ---------- per-card drama ----------
+   Every action gets a physical moment: hunters lunge at their prey,
+   the hippo shakes the room, the skunk gasses the line. */
+
+function center(rect) { return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }; }
+
+function impactAt(emoji, rect, delay = 0, size = 30) {
+  if (!rect) return;
+  const el = document.createElement('div');
+  el.className = 'impact';
+  el.textContent = emoji;
+  el.style.fontSize = size + 'px';
+  const c = center(rect);
+  el.style.left = (c.x - size / 2) + 'px';
+  el.style.top = (c.y - size / 2) + 'px';
+  el.style.animationDelay = delay + 'ms';
+  $('#fly-layer').appendChild(el);
+  setTimeout(() => el.remove(), 1200 + delay);
+}
+
+function ringPulse(rect) {
+  if (!rect) return;
+  const el = document.createElement('div');
+  el.className = 'ring';
+  const c = center(rect);
+  el.style.left = (c.x - 12) + 'px';
+  el.style.top = (c.y - 12) + 'px';
+  $('#fly-layer').appendChild(el);
+  setTimeout(() => el.remove(), 900);
+}
+
+function shakeTable() {
+  const table = $('#table');
+  table.classList.remove('shake');
+  void table.offsetWidth;
+  table.classList.add('shake');
+  setTimeout(() => table.classList.remove('shake'), 650);
+}
+
+function actorSweep(emoji, fromRect, toRect, cls = '') {
+  if (!fromRect || !toRect) return;
+  const el = document.createElement('div');
+  el.className = 'actor ' + cls;
+  el.textContent = emoji;
+  const a = center(fromRect), z = center(toRect);
+  el.style.left = (a.x - 22) + 'px';
+  el.style.top = (a.y - 22) + 'px';
+  $('#fly-layer').appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.style.left = (z.x - 22) + 'px';
+    el.style.top = (z.y - 22) + 'px';
+  }));
+  setTimeout(() => el.remove(), 1000);
+}
+
+function gasCloud(rect, delay = 0) {
+  if (!rect) return;
+  const el = document.createElement('div');
+  el.className = 'gas';
+  const c = center(rect);
+  el.style.left = (c.x - 45) + 'px';
+  el.style.top = (c.y - 45) + 'px';
+  el.style.animationDelay = delay + 'ms';
+  $('#fly-layer').appendChild(el);
+  setTimeout(() => el.remove(), 1500 + delay);
+}
+
+function dramatize(entry, oldRects) {
+  if (!entry || !entry.played) return;
+  const kind = entry.as || entry.played.name;
+  const box = $('#queue');
+  const playedKey = cardKey(entry.played);
+  const meEl = box.querySelector(`[data-key="${CSS.escape(playedKey)}"]`);
+  const meRect = meEl && meEl.getBoundingClientRect();
+  const table = $('#table').getBoundingClientRect();
+  const handRect = $('#hand-dock').getBoundingClientRect();
+  const selfDied = entry.to_trash.some(c => cardKey(c) === playedKey);
+  const victims = entry.to_trash.filter(c => cardKey(c) !== playedKey);
+  // victims the player saw in the line have exact positions; ones that
+  // came and went between two polls still pop, over the queue center
+  const fallback = { left: table.left + table.width * 0.3, top: table.top + table.height * 0.4,
+                     width: table.width * 0.4, height: 40 };
+  const victimRects = victims.map(c => oldRects[cardKey(c)] || fallback);
+  const farVictim = victimRects[victimRects.length - 1];
+
+  // every casualty pops
+  victimRects.forEach((r, i) => impactAt('💥', r, i * 110));
+  // a card that died the moment it was played (2nd lion, reflected
+  // bruiser, burned bat) visibly bounces off toward the trash
+  if (selfDied) {
+    actorSweep(EMOJI[entry.played.name], handRect, $('#trash-pile').getBoundingClientRect());
+  }
+
+  switch (kind) {
+    case 'Croc':
+      if (victimRects.length) { actorSweep('🐊', meRect || handRect, farVictim, 'chomp'); shakeTable(); }
+      break;
+    case 'Tiger':
+    case 'Cheetah':
+      if (victimRects.length) actorSweep(EMOJI[kind], meRect || handRect, victimRects[0], 'chomp');
+      break;
+    case 'Rhino':
+      if (selfDied) { impactAt('🦔', meRect || table, 150, 38); impactAt('💢', handRect, 250); }
+      else if (victimRects.length) { actorSweep('🦏', handRect, victimRects[0], 'charge'); shakeTable(); }
+      break;
+    case 'Hippo':
+      shakeTable();
+      impactAt('💨', meRect, 100);
+      break;
+    case 'Lion':
+      if (selfDied) { impactAt('👑', handRect, 0, 36); break; }
+      ringPulse(meRect);
+      impactAt('👑', meRect, 120, 34);
+      victimRects.forEach((r, i) => impactAt('💨', r, i * 90));
+      break;
+    case 'Monkey':
+      victimRects.forEach((r, i) => impactAt('🍌', r, i * 100, 26));
+      if (victims.length) impactAt('🐒', meRect, 200, 34);
+      break;
+    case 'Skunk':
+      victimRects.forEach((r, i) => { gasCloud(r, i * 120); impactAt('🤢', r, 250 + i * 120, 26); });
+      break;
+    case 'Parrot':
+      if (victimRects.length) actorSweep('🦜', { left: table.left, top: table.top, width: 40, height: 40 }, victimRects[0], 'chomp');
+      break;
+    case 'Bat':
+      if (victimRects.length) actorSweep('🦇', { left: table.right - 60, top: table.top, width: 40, height: 40 }, victimRects[0], 'chomp');
+      if (selfDied) impactAt('☀️', oldRects[playedKey] || meRect || table, 400, 34);
+      break;
+    case 'Kangaroo':
+      if (meEl) { setTimeout(() => meEl.classList.add('hop'), 500); setTimeout(() => meEl.classList.remove('hop'), 1300); }
+      break;
+    case 'Zebra':
+    case 'Porcupine':
+      impactAt('🛡️', meRect, 150, 30);
+      break;
+    case 'Peacock':
+      impactAt('✨', meRect, 100, 28);
+      impactAt('✨', meRect, 260, 22);
+      break;
+    case 'Llama':
+      impactAt('💦', meRect, 150, 26);
+      break;
+    case 'Ostrich':
+      impactAt('💨', meRect, 100, 26);
+      break;
+    case 'Bear':
+      impactAt('🐾', meRect, 120, 32);
+      break;
+    case 'Vulture': {
+      // the revived animal rises from the trash back into the line
+      const revived = [...box.querySelectorAll('.qcard')]
+        .find(el => !oldRects[el.dataset.key]);
+      if (revived) {
+        actorSweep('♻️', $('#trash-pile').getBoundingClientRect(), revived.getBoundingClientRect());
+      }
+      break;
+    }
+  }
+}
+
 /* ---------- seal: the table turns around ---------- */
 
 function spinTable() {
@@ -641,23 +802,32 @@ function renderQueue() {
   // a seal swaps the gate and the exit: spin the whole table instead of
   // sliding cards past each other — like turning the real table around
   const sealEntry = freshEntries.find(e => e.played.name === 'Seal' || e.as === 'Seal');
+  // sorters reorder the whole line: cascade the slides one after another
+  const sortWave = freshEntries.some(e => ['Snake', 'Dog'].includes(e.as || e.played.name));
   if (sealEntry) {
     spinTable();
   } else {
   // FLIP step 2: slide moved cards; let the just-played card arrive
   // visibly from its owner's chip
   requestAnimationFrame(() => {
+    let row = 0;
     for (const el of box.querySelectorAll('.qcard')) {
+      const delay = sortWave ? `${row * 90}ms` : '';
+      row += 1;
       const old = oldRects[el.dataset.key];
       if (old) {
         const now = el.getBoundingClientRect();
         const dx = old.left - now.left, dy = old.top - now.top;
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
           el.style.transform = `translate(${dx}px, ${dy}px)`;
+          el.style.transitionDelay = delay;
           void el.offsetWidth;
           el.classList.add('moving');
           el.style.transform = '';
-          el.addEventListener('transitionend', () => el.classList.remove('moving'), { once: true });
+          el.addEventListener('transitionend', () => {
+            el.classList.remove('moving');
+            el.style.transitionDelay = '';
+          }, { once: true });
         }
       } else if (freshEntries.length && lastEntry &&
                  el.dataset.key === cardKey(lastEntry.played)) {
@@ -679,10 +849,13 @@ function renderQueue() {
   });
   }
 
-  // fly outgoing animals to the piles; celebrate when the gate opens
+  // fly outgoing animals to the piles; stage each card's drama;
+  // celebrate when the gate opens
   for (const entry of freshEntries) {
+    if (!entry || !entry.played) continue;
     flyCards(entry.to_bar, oldRects, '#bar-pile');
     flyCards(entry.to_trash, oldRects, '#trash-pile');
+    try { dramatize(entry, oldRects); } catch (e) { /* drama must never break play */ }
     if (entry.gate_opened) {
       const gate = $('#gate-in');
       gate.classList.remove('open');
