@@ -10,21 +10,36 @@ I really like the game and I decided that it would be fun to look at the game.
 - How hard it is to implement the game? (Surprisingly hard, i.e. the queue management was first to me.)
 - What will be the optimal strategy? (I don't know yet.)
 
-## Play in the browser
+## Play in the browser (multiplayer)
 
 ```
 python webapp/server.py
 ```
 
-Then open http://localhost:8000. You play as the blue player against 1–3 AI
-opponents. The frontend supports all player choices from the rules:
+Then open http://localhost:8000. Create a game, pick a deck and the number
+of human players, and share the invite link with friends — empty seats are
+filled with AI. The UI is optimized for phones.
 
-- **Parrot** 🦜 — click the queue card to throw out
-- **Kangaroo** 🦘 — choose to jump over one or two animals
-- **Chameleon** 🦎 — click the species in the queue to imitate (including
-  imitating a parrot or kangaroo, with their follow-up choices)
+Decks:
+
+- 🦁 **Classic** — the original 12 animals; most guests in the bar wins
+  (ties broken by the lower total card value).
+- 🦏 **New Beasts in Town** — the 12 expansion animals (rhino, bear, tiger,
+  cheetah, llama, porcupine, ostrich, penguin, dog, peacock, vulture, bat);
+  the card points decide the winner.
+- 🔀 **Mixed** — every player gets a random pick of one animal per value
+  (1–12) from the two sets, points scoring. (The official combined rules
+  let each player draft their own 12; the random pick keeps the UI simple.)
+
+All in-game decisions are interactive: parrot/bat targets, kangaroo jump
+length, ostrich parity, chameleon species, penguin hand-card imitation, and
+the choices of a card revived by the vulture. Rare tie-breaking choices
+(rhino/cheetah/peacock with several equally strong targets) currently use
+a sensible default instead of a prompt.
 
 The server uses only the Python standard library — no dependencies needed.
+A `Dockerfile`/`Procfile` are included if you want to host it somewhere
+permanent (Render, Fly.io, Railway, …).
 
 ## Run a simulated game:
 In order to get a single played game for 4 AI players, run

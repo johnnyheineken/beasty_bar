@@ -77,6 +77,11 @@ class GameRunner:
             self.game_state.cards_in_bar.extend(to_winners)
             self.game_state.cards_in_thrash.extend(to_losers)
 
+            # the shove toward the gate can put a bat into first position
+            new_queue, burned = self.game_state.queue.burn_bats()
+            self.game_state.queue = new_queue
+            self.game_state.cards_in_thrash.extend(burned)
+
             # Set the queue evaluation result in game state
             self.game_state.set_queue_evaluation_result(to_winners, to_losers, self.game_state.queue)
         else:

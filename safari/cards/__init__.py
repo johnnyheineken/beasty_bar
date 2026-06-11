@@ -11,6 +11,19 @@ NAMES = {
     'Croc': 'Croc 🐊',
     'Hippo': 'Hippo 🦛',
     'Lion': 'Lion 🦁',
+    # New Beasts in Town
+    'Bat': 'Bat 🦇',
+    'Vulture': 'Vulture 🦅',
+    'Peacock': 'Peacock 🦚',
+    'Dog': 'Dog 🐕',
+    'Penguin': 'Penguin 🐧',
+    'Ostrich': 'Ostrich 🦤',
+    'Porcupine': 'Porcupine 🦔',
+    'Llama': 'Llama 🦙',
+    'Cheetah': 'Cheetah 🐆',
+    'Tiger': 'Tiger 🐯',
+    'Bear': 'Bear 🐻',
+    'Rhino': 'Rhino 🦏',
 }
 SHORT_NAMES = {
     'Skunk': '🦨',
@@ -25,6 +38,18 @@ SHORT_NAMES = {
     'Croc': '🐊',
     'Hippo': '🦛',
     'Lion': '🦁',
+    'Bat': '🦇',
+    'Vulture': '🦅',
+    'Peacock': '🦚',
+    'Dog': '🐕',
+    'Penguin': '🐧',
+    'Ostrich': '🦤',
+    'Porcupine': '🦔',
+    'Llama': '🦙',
+    'Cheetah': '🐆',
+    'Tiger': '🐯',
+    'Bear': '🐻',
+    'Rhino': '🦏',
 }
 
 PLAYERS = {

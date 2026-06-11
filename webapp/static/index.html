@@ -2,68 +2,121 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#1a1423">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Beasty Bar</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
+
+  <!-- ============ HOME ============ -->
+  <section id="screen-home" class="screen">
     <h1>🍹 Beasty Bar</h1>
-    <div class="new-game">
-      New game:
-      <button data-players="2">2 players</button>
-      <button data-players="3">3 players</button>
-      <button data-players="4">4 players</button>
+    <div class="panel">
+      <label for="player-name">Your name</label>
+      <input id="player-name" maxlength="20" placeholder="e.g. Honza" autocomplete="nickname">
+
+      <label>Deck</label>
+      <div class="seg" id="deck-select">
+        <button data-deck="classic" class="on">🦁 Classic</button>
+        <button data-deck="new_beasts">🦏 New Beasts</button>
+        <button data-deck="mixed">🔀 Mixed</button>
+      </div>
+      <div class="hint" id="deck-hint">The original 12 animals. Most guests in the bar wins.</div>
+
+      <label>Players at the table</label>
+      <div class="seg" id="total-select">
+        <button data-n="2">2</button>
+        <button data-n="3">3</button>
+        <button data-n="4" class="on">4</button>
+      </div>
+
+      <label>Humans (the rest are 🤖)</label>
+      <div class="seg" id="humans-select">
+        <button data-n="1" class="on">1</button>
+        <button data-n="2">2</button>
+        <button data-n="3">3</button>
+        <button data-n="4">4</button>
+      </div>
+
+      <button id="create-btn" class="cta">Create game</button>
+      <div class="hint err" id="home-error"></div>
     </div>
-  </header>
+  </section>
 
-  <main>
-    <section id="board">
-      <div id="piles">
-        <div class="pile" id="bar-pile">
-          <div class="pile-title">🍸 Beasty Bar</div>
-          <div class="pile-count" id="bar-count">0</div>
-          <div class="pile-breakdown" id="bar-breakdown"></div>
-        </div>
-        <div id="opponents"></div>
-        <div class="pile" id="trash-pile">
-          <div class="pile-title">🚮 THAT'S IT</div>
-          <div class="pile-count" id="trash-count">0</div>
-          <div class="pile-breakdown" id="trash-breakdown"></div>
-        </div>
+  <!-- ============ JOIN ============ -->
+  <section id="screen-join" class="screen hidden">
+    <h1>🍹 Beasty Bar</h1>
+    <div class="panel">
+      <p>You were invited to a game!</p>
+      <label for="join-name">Your name</label>
+      <input id="join-name" maxlength="20" placeholder="e.g. Katka" autocomplete="nickname">
+      <button id="join-btn" class="cta">Join the game</button>
+      <div class="hint err" id="join-error"></div>
+    </div>
+  </section>
+
+  <!-- ============ LOBBY ============ -->
+  <section id="screen-lobby" class="screen hidden">
+    <h1>🍹 Beasty Bar</h1>
+    <div class="panel">
+      <h2>Waiting for players…</h2>
+      <div id="lobby-seats"></div>
+      <label>Invite link — send it to your friends</label>
+      <div class="invite">
+        <input id="invite-link" readonly>
+        <button id="copy-btn">Copy</button>
+        <button id="share-btn">Share</button>
       </div>
+      <div class="hint">The game starts as soon as every seat is taken.</div>
+    </div>
+  </section>
 
-      <div id="queue-row">
-        <div class="gate" id="gate" title="Heaven's Gate — first two animals of a full line enter the bar">🚪<span>GATE</span></div>
-        <div id="queue"></div>
-        <div class="gate exclusion" title="The last animal of a full line is thrown out">⛔<span>OUT</span></div>
+  <!-- ============ GAME ============ -->
+  <section id="screen-game" class="screen hidden">
+    <div id="topbar">
+      <span id="deck-badge"></span>
+      <div id="players-strip"></div>
+    </div>
+
+    <div id="piles">
+      <div class="pile" id="bar-pile">
+        <span class="pile-title">🍸 Bar</span>
+        <span class="pile-count" id="bar-count">0</span>
       </div>
-
       <div id="status"></div>
-      <div id="choice-buttons"></div>
-
-      <div id="hand-row">
-        <div class="hand-label">Your hand</div>
-        <div id="hand"></div>
+      <div class="pile" id="trash-pile">
+        <span class="pile-title">🚮 That's&nbsp;it</span>
+        <span class="pile-count" id="trash-count">0</span>
+        <div id="trash-top"></div>
       </div>
-    </section>
+    </div>
 
-    <aside id="log-panel">
-      <h2>Game log</h2>
+    <div id="queue-row">
+      <div class="gate">🚪</div>
+      <div id="queue"></div>
+      <div class="gate out">⛔</div>
+    </div>
+
+    <div id="choice-buttons"></div>
+
+    <div id="hand-row">
+      <div id="hand"></div>
+    </div>
+
+    <details id="log-panel">
+      <summary>Game log</summary>
       <div id="log"></div>
-    </aside>
-  </main>
+    </details>
+  </section>
 
+  <!-- ============ END OVERLAY ============ -->
   <div id="end-overlay" class="hidden">
     <div id="end-box">
       <h2 id="end-title"></h2>
       <table id="end-table"></table>
-      <div class="new-game">
-        Play again:
-        <button data-players="2">2</button>
-        <button data-players="3">3</button>
-        <button data-players="4">4</button>
-      </div>
+      <button id="again-btn" class="cta">Back to menu</button>
     </div>
   </div>
 

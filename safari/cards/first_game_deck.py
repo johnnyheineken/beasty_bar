@@ -10,7 +10,7 @@ class Monkey(Card):
     """
 
     value = ANIMALS.MONKEY
-    point_value = 3
+    point_value = 4
 
     def action(self, queue: Queue) -> (Queue, list):
         dropped = []
@@ -89,7 +89,7 @@ class Croc(Card):
     """
 
     value = ANIMALS.CROC
-    point_value = 3
+    point_value = 2
     repeating_action = True
 
     def action(self, queue: Queue):
@@ -167,7 +167,7 @@ class Zebra(Card):
     """
 
     value = ANIMALS.ZEBRA
-    point_value = 4
+    point_value = 3
 
     def action(self, queue: Queue):
         dropped = []
@@ -182,7 +182,7 @@ class Seal(Card):
     """
 
     value = ANIMALS.SEAL
-    point_value = 2
+    point_value = 3
 
     def action(self, queue: Queue):
         dropped = []
@@ -263,7 +263,8 @@ class Parrot(Card):
         if queue:
             target = getattr(self, 'target_index', None)
             if target is None or not 0 <= target < len(queue):
-                target = self._default_target(queue)
+                # via the class: `self` may be an imitating chameleon/penguin
+                target = Parrot._default_target(self, queue)
             dropped = [queue.pop(target)]
         queue += [self]
         return Queue(queue), dropped

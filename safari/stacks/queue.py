@@ -43,11 +43,19 @@ class Queue(list):
         all_dropped = []
         queue, dropped = added_card.action(self)
         all_dropped += dropped
-        # Recurring actions run once per turn, starting with the animal
-        # closest to the gate. The just-played card is skipped: its action
-        # already ran, and it only starts recurring on subsequent turns.
+        queue, dropped = Queue(queue).run_recurring(skip=added_card)
+        all_dropped += dropped
+        return queue, all_dropped
+
+    def run_recurring(self, skip=None):
+        """Recurring actions run once per turn, starting with the animal
+        closest to the gate. The just-played card is skipped: its action
+        already ran, and it only starts recurring on subsequent turns."""
+        all_dropped = []
+        queue, dropped = Queue(self).burn_bats()
+        all_dropped += dropped
         for card in list(queue):
-            if card is added_card:
+            if card is skip:
                 continue
             if not card.repeating_action:
                 continue
@@ -55,5 +63,14 @@ class Queue(list):
                 continue  # already removed by an earlier recurring action
             queue, dropped = card.action(queue)
             all_dropped += dropped
+            queue, dropped = Queue(queue).burn_bats()
+            all_dropped += dropped
+        return Queue(queue), all_dropped
 
-        return queue, all_dropped
+    def burn_bats(self):
+        """Permanent rule from New Beasts in Town: a bat that is first in
+        line (directly at Heaven's Gate) burns up immediately."""
+        queue, dropped = Queue(self), []
+        while queue and getattr(queue[0], 'burns_at_gate', False):
+            dropped.append(queue.pop(0))
+        return queue, dropped
