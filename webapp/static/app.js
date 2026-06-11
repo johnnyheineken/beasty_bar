@@ -8,33 +8,34 @@ const EMOJI = {
 };
 const LABEL = { Gazelle: 'Giraffe' };
 
-/* 🔁 recurring · ♾️ always on · 🛡️ protects · 🎭 copies · ↕️ sorts
-   ⏩ pushes forward · 🔄 reverses · ↷ jumps · 🚮 throws out · 😋 eats */
+/* 🔁 recurring · 🛡 protects · 🎭 copies · → toward the gate
+   ↷ jumps · 🚮 throws out · 😋 eats  (plain arrows render cleanly
+   on iOS — the blue-button emoji variants don't) */
 const ICONS = {
-  Lion:      '🚮🐒 ⏩🚪',
-  Hippo:     '🔁 ⏩ ✋🦁🦓🦛',
-  Croc:      '🔁 😋⬅️ ✋🦁🦛🦓',
-  Snake:     '↕️ 💪→🚪',
-  Gazelle:   '🔁 ↷1️⃣🐭',
-  Zebra:     '♾️🛡️ ⛔🦛🐊',
-  Seal:      '🔄 🚪⇄⛔',
-  Chameleon: '🎭 ⬇️👀',
-  Monkey:    '🐒🐒 🚮🦛🐊 ⏩🚪',
-  Kangaroo:  '↷ 1️⃣/2️⃣',
-  Parrot:    '🚮 👆',
-  Skunk:     '🚮 💪💪',
-  Rhino:     '🚮💪 📍',
-  Bear:      '🐭🐭 ↩️',
-  Tiger:     '🔁 ↷ 😋🐭 📍',
-  Cheetah:   '😋🐭 📍',
-  Llama:     '🔁 💦⬅️ ↩️',
-  Porcupine: '♾️🛡️ 🪃🦏🐯🐆',
-  Ostrich:   '🏃 2️⃣4️⃣6️⃣/1️⃣3️⃣5️⃣',
-  Penguin:   '🎭 ✋👀',
-  Dog:       '↕️ 🐭→🚪',
-  Peacock:   '📍 ⬅️💪',
-  Vulture:   '♻️ 🚮🔝',
-  Bat:       '👆📍 🚪=💥',
+  Lion:      '🐒→🚮 · №1🚪',
+  Hippo:     '🔁 →🚪 ✗🦁🦓🦛',
+  Croc:      '🔁 😋← ✗🦁🦛🦓',
+  Snake:     '⇅ 💪→🚪',
+  Gazelle:   '🔁 ↷🐭',
+  Zebra:     '🛡 ✗🦛🐊',
+  Seal:      '⇆ 🚪⛔',
+  Chameleon: '🎭 ↓line',
+  Monkey:    '🐒+🐒 🦛🐊→🚮',
+  Kangaroo:  '↷ 1·2',
+  Parrot:    '👆→🚮',
+  Skunk:     '💪💪→🚮',
+  Rhino:     '💪→🚮 ⊕',
+  Bear:      '🐭🐭→end',
+  Tiger:     '🔁 ↷↷ 😋🐭',
+  Cheetah:   '😋🐭 ⊕',
+  Llama:     '🔁 💦←end',
+  Porcupine: '🛡 ⟲🦏🐯🐆',
+  Ostrich:   '🏃 2·4·6 ∕ 1·3·5',
+  Penguin:   '🎭 ✋hand',
+  Dog:       '⇅ 🐭→🚪',
+  Peacock:   '→front of 💪',
+  Vulture:   '♻ 🚮top',
+  Bat:       '👆⊕ 🚪=💥',
 };
 const HINTS = {
   Lion: 'Monkeys out, then goes first. A 2nd lion is thrown out itself.',
@@ -456,8 +457,45 @@ function handCardEl(card) {
   el.innerHTML = `
     <div class="cvalue">${card.animal}</div>
     <div class="emoji">${EMOJI[card.name] || '❓'}</div>
+    <div class="cname">${label(card.name)}</div>
     ${TRAIT[card.name] ? `<div class="ctrait">${TRAIT[card.name]}</div>` : ''}`;
   return el;
+}
+
+/* ---------- gate celebration ---------- */
+
+const CONFETTI_COLORS = ['#f5b942', '#ff8e3c', '#3b82f6', '#22c55e', '#ef4444', '#fff'];
+
+function celebrateGate(entry) {
+  if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
+  const layer = $('#fly-layer');
+
+  const flash = document.createElement('div');
+  flash.id = 'gate-flash';
+  layer.appendChild(flash);
+  setTimeout(() => flash.remove(), 1000);
+
+  const banner = document.createElement('div');
+  banner.className = 'gate-banner';
+  const who = entry.to_bar.map(c => EMOJI[c.name]).join(' ');
+  banner.innerHTML = `<div class="gb-top">🚪✨</div><div class="gb-who">${who} → 🍸</div>`;
+  layer.appendChild(banner);
+  setTimeout(() => banner.remove(), 1700);
+
+  const table = $('#table').getBoundingClientRect();
+  for (let i = 0; i < 30; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetto';
+    c.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    c.style.left = (table.left + table.width / 2) + 'px';
+    c.style.top = (table.top + table.height * 0.18) + 'px';
+    c.style.setProperty('--dx', `${(Math.random() - 0.5) * table.width * 1.4}px`);
+    c.style.setProperty('--dy', `${table.height * (0.5 + Math.random() * 0.5)}px`);
+    c.style.setProperty('--rot', `${(Math.random() - 0.5) * 900}deg`);
+    c.style.animationDelay = `${Math.random() * 0.15}s`;
+    layer.appendChild(c);
+    setTimeout(() => c.remove(), 1800);
+  }
 }
 
 function renderGame() {
@@ -601,7 +639,7 @@ function renderQueue() {
     }
   });
 
-  // fly outgoing animals to the piles; swing the gate when it opens
+  // fly outgoing animals to the piles; celebrate when the gate opens
   for (const entry of freshEntries) {
     flyCards(entry.to_bar, oldRects, '#bar-pile');
     flyCards(entry.to_trash, oldRects, '#trash-pile');
@@ -610,6 +648,7 @@ function renderQueue() {
       gate.classList.remove('open');
       void gate.offsetWidth;
       gate.classList.add('open');
+      celebrateGate(entry);
     }
   }
   lastLogLen = total;
