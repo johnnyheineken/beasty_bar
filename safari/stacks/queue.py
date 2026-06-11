@@ -41,15 +41,19 @@ class Queue(list):
 
     def resolve(self, added_card: Card):
         all_dropped = []
-        if hasattr(added_card, 'resolve_action'):
-            added_card.resolve_action(self)
         queue, dropped = added_card.action(self)
         all_dropped += dropped
-        for card in queue:
-            if card == added_card:
+        # Recurring actions run once per turn, starting with the animal
+        # closest to the gate. The just-played card is skipped: its action
+        # already ran, and it only starts recurring on subsequent turns.
+        for card in list(queue):
+            if card is added_card:
                 continue
-            if card.repeating_action:
-                queue, dropped = card.action(queue)
-                all_dropped += dropped
+            if not card.repeating_action:
+                continue
+            if not any(c is card for c in queue):
+                continue  # already removed by an earlier recurring action
+            queue, dropped = card.action(queue)
+            all_dropped += dropped
 
         return queue, all_dropped

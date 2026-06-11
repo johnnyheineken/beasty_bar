@@ -126,5 +126,12 @@ def test_is_game_finished(sample_game_state):
 def test_update_results(sample_game_state):
     sample_game_state.cards_in_bar = [Lion(0), Monkey(1), Hippo(0)]
     sample_game_state.update_results()
-    assert sample_game_state.results[0] == Lion(0).point_value + Hippo(0).point_value
-    assert sample_game_state.results[1] == Monkey(1).point_value
+    assert sample_game_state.results[0] == 2
+    assert sample_game_state.results[1] == 1
+
+
+def test_get_winners_tiebreak_lower_value(sample_game_state):
+    # Both players have 2 guests; player 1's guests have the lower total value.
+    sample_game_state.cards_in_bar = [Lion(0), Hippo(0), Monkey(1), Hippo(1)]
+    sample_game_state.update_results()
+    assert sample_game_state.get_winners() == [1]

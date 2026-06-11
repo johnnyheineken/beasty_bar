@@ -118,7 +118,8 @@ class Croc(Card):
 
 class Snake(Card):
     """
-    Sort all cards by their value.
+    Sort all cards by their value, strongest closest to the gate.
+    Members of the same species keep their relative order.
     """
 
     value = ANIMALS.SNAKE
@@ -127,14 +128,14 @@ class Snake(Card):
     def action(self, queue: Queue):
         dropped = []
         queue += [self]
-        queue = reversed(sorted(queue, key=lambda x: x.value))
+        queue = sorted(queue, key=lambda x: -x.value)
         return Queue(queue), dropped
 
 
 class Gazelle(Card):
     """
     Repeating action.
-    Jump any animal with lower value in front of you.
+    Jump one animal with strictly lower value in front of you (one per turn).
     """
 
     value = ANIMALS.GAZELLE
@@ -151,7 +152,7 @@ class Gazelle(Card):
             queue += [self]
         else:
             animal_in_front = queue[-1]
-            if animal_in_front.value <= self.value:
+            if animal_in_front.value < self.value:
                 queue = queue[:-1] + [self] + [animal_in_front]
             else:
                 queue += [self]
@@ -193,35 +194,45 @@ class Seal(Card):
 
 class Chameleon(Card):
     """
-    Do one time action of any animal laying in the queue
+    Carry out the action of a species currently present in the queue,
+    taking on its strength for that action only. Set `imitate` to the
+    ANIMALS value of the chosen species (must be present in the queue);
+    otherwise the first non-chameleon species in line is imitated.
     """
 
     value = ANIMALS.CHAMELEON
     point_value = 3
     taken_form_of = None
+    imitate = None
 
     def __str__(self):
         desc = super().__str__()
         desc += "" if self.taken_form_of is None else f" as {self.taken_form_of}"
         return desc
 
-    def resolve_action(self, queue: Queue):
+    def action(self, queue: Queue):
+        species = {
+            i.value: i.__class__ for i in queue if not isinstance(i, Chameleon)
+        }
+        if not species:
+            queue += [self]
+            return Queue(queue), []
 
-        classes_in_queue = [
-            i.__class__ for i in queue if not isinstance(i, Chameleon)
-        ]
-        if classes_in_queue:
-            action = lambda x: classes_in_queue[0].action(self, x)
-            self.taken_form_of = classes_in_queue[0].__name__
-        else:
-            action = lambda x: Zebra.action(self, x)
-
-        self.action = action
+        chosen = self.imitate if self.imitate in species else next(iter(species))
+        mimic = species[chosen]
+        self.taken_form_of = mimic.__name__
+        self.value = mimic.value
+        try:
+            queue, dropped = mimic.action(self, queue)
+        finally:
+            self.value = ANIMALS.CHAMELEON
+        return Queue(queue), dropped
 
 
 class Kangaroo(Card):
     """
-    Jump two animals
+    Jump over the last one or two animals in line (player's choice,
+    via the `jump` attribute; defaults to two).
     """
 
     value = ANIMALS.KANGAROO
@@ -229,17 +240,19 @@ class Kangaroo(Card):
 
     def action(self, queue):
         dropped = []
-        if len(queue) < 2:
-            queue = [self] + queue
-        else:
-            queue = queue[:-2] + [self] + queue[-2:]
+        jump = getattr(self, 'jump', 2)
+        jump = max(1, min(2, jump, len(queue)))
+        cut = len(queue) - jump
+        queue = queue[:cut] + [self] + queue[cut:]
         return Queue(queue), dropped
 
 
 class Parrot(Card):
     """
-    Throw any animal to the thrash.
-    Parrot itself goes to the last position in the queue.
+    Throw an animal of the player's choice (via the `target_index`
+    attribute) to the thrash. Parrot itself goes to the last position
+    in the queue. Without an explicit choice, the strongest animal not
+    owned by the parrot's player is thrown out.
     """
 
     value = ANIMALS.PARROT
@@ -248,12 +261,18 @@ class Parrot(Card):
     def action(self, queue):
         dropped = []
         if queue:
-            dropped = [queue.pop(0)]
+            target = getattr(self, 'target_index', None)
+            if target is None or not 0 <= target < len(queue):
+                target = self._default_target(queue)
+            dropped = [queue.pop(target)]
         queue += [self]
-        return queue, dropped
+        return Queue(queue), dropped
 
-    def resolve_action(self, queue: Queue):
-        ...
+    def _default_target(self, queue):
+        candidates = [i for i, c in enumerate(queue) if c.player != self.player]
+        if not candidates:
+            candidates = range(len(queue))
+        return max(candidates, key=lambda i: queue[i].value)
 
 
 class Skunk(Card):

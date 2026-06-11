@@ -10,13 +10,29 @@ I really like the game and I decided that it would be fun to look at the game.
 - How hard it is to implement the game? (Surprisingly hard, i.e. the queue management was first to me.)
 - What will be the optimal strategy? (I don't know yet.)
 
-## Run:
-In order to get a single played game for 4 players, run 
+## Play in the browser
+
 ```
-python safari.py
+python webapp/server.py
+```
+
+Then open http://localhost:8000. You play as the blue player against 1–3 AI
+opponents. The frontend supports all player choices from the rules:
+
+- **Parrot** 🦜 — click the queue card to throw out
+- **Kangaroo** 🦘 — choose to jump over one or two animals
+- **Chameleon** 🦎 — click the species in the queue to imitate (including
+  imitating a parrot or kangaroo, with their follow-up choices)
+
+The server uses only the Python standard library — no dependencies needed.
+
+## Run a simulated game:
+In order to get a single played game for 4 AI players, run
+```
+python logic.py
 ```
 You should get a log of the single game.  
-Works with Python 3.10.
+Works with Python 3.10+.
 
 ## Tests:
 

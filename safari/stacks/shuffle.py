@@ -31,10 +31,11 @@ def init(strategies: dict):
 
         personal_cards = [card(player) for card in all_cards]
         random.shuffle(personal_cards)
+        # Base rules: 4 cards in hand, the remaining 8 form the draw pile.
         players[player] = {
             'hand': [personal_cards.pop() for _ in range(4)],
-            'deck': [personal_cards.pop() for _ in range(6)],
-            'thrown': personal_cards,
+            'deck': personal_cards,
+            'thrown': [],
             'strategy': strategy(),
             'finished': False
         }

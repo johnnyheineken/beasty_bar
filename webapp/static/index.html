@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Beasty Bar</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🍹 Beasty Bar</h1>
+    <div class="new-game">
+      New game:
+      <button data-players="2">2 players</button>
+      <button data-players="3">3 players</button>
+      <button data-players="4">4 players</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="board">
+      <div id="piles">
+        <div class="pile" id="bar-pile">
+          <div class="pile-title">🍸 Beasty Bar</div>
+          <div class="pile-count" id="bar-count">0</div>
+          <div class="pile-breakdown" id="bar-breakdown"></div>
+        </div>
+        <div id="opponents"></div>
+        <div class="pile" id="trash-pile">
+          <div class="pile-title">🚮 THAT'S IT</div>
+          <div class="pile-count" id="trash-count">0</div>
+          <div class="pile-breakdown" id="trash-breakdown"></div>
+        </div>
+      </div>
+
+      <div id="queue-row">
+        <div class="gate" id="gate" title="Heaven's Gate — first two animals of a full line enter the bar">🚪<span>GATE</span></div>
+        <div id="queue"></div>
+        <div class="gate exclusion" title="The last animal of a full line is thrown out">⛔<span>OUT</span></div>
+      </div>
+
+      <div id="status"></div>
+      <div id="choice-buttons"></div>
+
+      <div id="hand-row">
+        <div class="hand-label">Your hand</div>
+        <div id="hand"></div>
+      </div>
+    </section>
+
+    <aside id="log-panel">
+      <h2>Game log</h2>
+      <div id="log"></div>
+    </aside>
+  </main>
+
+  <div id="end-overlay" class="hidden">
+    <div id="end-box">
+      <h2 id="end-title"></h2>
+      <table id="end-table"></table>
+      <div class="new-game">
+        Play again:
+        <button data-players="2">2</button>
+        <button data-players="3">3</button>
+        <button data-players="4">4</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -119,9 +119,26 @@ class GameState:
         return all(self.table[p]['finished'] for p in self.table)
 
     def update_results(self):
-        self.results = {}
+        # Base game scoring: each animal in the bar counts as one guest.
+        self.results = {p: 0 for p in self.players}
         for winner in self.cards_in_bar:
-            self.results[winner.player] = self.results.get(winner.player, 0) + winner.point_value
+            self.results[winner.player] = self.results.get(winner.player, 0) + 1
+
+    def get_winners(self):
+        """Most guests in the bar wins; ties are broken by the LOWER sum of
+        card values of the bar guests. Several players can still tie."""
+        if not self.results:
+            return []
+        best = max(self.results.values())
+        tied = [p for p, n in self.results.items() if n == best]
+        if len(tied) == 1:
+            return tied
+        value_sums = {
+            p: sum(int(c.value) for c in self.cards_in_bar if c.player == p)
+            for p in tied
+        }
+        lowest = min(value_sums.values())
+        return [p for p in tied if value_sums[p] == lowest]
 
     def get_player_hand(self, player):
         return self.table[player]['hand']
