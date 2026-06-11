@@ -16,9 +16,18 @@ I really like the game and I decided that it would be fun to look at the game.
 python webapp/server.py
 ```
 
-Then open http://localhost:8000. Create a game, pick a deck and the number
-of human players, and share the invite link with friends — empty seats are
-filled with AI. The UI is optimized for phones.
+Then open http://localhost:8000. Create a game, pick a deck, choose how many
+players share *this* phone (hotseat — the app asks to pass the phone between
+turns and hides hands in between), how many seats are AI, and share the
+invite link for the rest — each friend's device can also seat one or two
+players. Any mix works: e.g. 2 devices with 2 players each, or 2 humans on
+one phone vs. 2 AI.
+
+AI difficulty levels: 🐣 easy (random), 🙂 normal (simulates every card and
+picks a good outcome, with some noise), 🧠 hard (additionally searches all
+decisions — targets, jump distance, parity, imitations — and anticipates
+what enemy crocs/tigers/hippos will do next). Benchmarks over 200 games:
+hard beats normal ≈59:41; both beat easy ≈9:1.
 
 Decks:
 

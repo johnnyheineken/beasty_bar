@@ -83,14 +83,31 @@ let preview = null;    // {card, params, data} — outcome waiting for confirm
 let pollTimer = null;
 let lastLogLen = null;
 let session = null;
+let revealedSeat = null;   // hotseat: whose hand is currently visible
 let prevCounts = { bar: 0, trash: 0 };
-const ui = { deck: 'classic', total: 4, humans: 1 };
+const ui = { deck: 'classic', total: 4, local: 1, ai: 3, difficulty: 'medium', joinLocal: 1 };
 
 function label(name) { return LABEL[name] || name; }
 function cardKey(c) { return `${c.name}-${c.player}`; }
+
+function mySeats() { return (state && state.you_seats) || []; }
+function isHotseat() { return mySeats().length > 1; }
+function activeLocalSeat() {
+  return !state.finished && mySeats().includes(state.current_player)
+    ? state.current_player : null;
+}
 function playerName(id) {
   if (!state) return `Player ${id + 1}`;
-  return (state.you === id) ? 'You' : state.players[id].name;
+  if (!isHotseat() && state.you === id) return 'You';
+  return state.players[id].name;
+}
+function myHand() {
+  // the hand the dock should show (only revealed hands in hotseat mode)
+  if (!state || !mySeats().length) return null;
+  if (!isHotseat()) return { seat: state.you, cards: state.hands[state.you] || [] };
+  const seat = activeLocalSeat();
+  if (seat !== null && revealedSeat === seat) return { seat, cards: state.hands[seat] || [] };
+  return null;
 }
 
 /* ---------- session / routing ---------- */
@@ -128,33 +145,72 @@ function show(screen) {
 
 /* ---------- menu ---------- */
 
-function segInit(sel, key, attr) {
+function segInit(sel, key, dataAttr) {
   $(sel).addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
     for (const x of $(sel).querySelectorAll('button')) x.classList.remove('on');
     b.classList.add('on');
-    ui[key] = attr === 'deck' ? b.dataset.deck : parseInt(b.dataset.n, 10);
+    ui[key] = dataAttr ? b.dataset[dataAttr] : parseInt(b.dataset.n, 10);
     if (key === 'deck') $('#deck-hint').textContent = DECK_HINTS[ui.deck];
-    if (key === 'total') clampHumans();
+    refreshHomeForm();
   });
 }
 
-function clampHumans() {
-  for (const b of $('#humans-select').querySelectorAll('button')) {
+function nameInputs(boxSel, count, prefix) {
+  const box = $(boxSel);
+  const existing = [...box.querySelectorAll('input')].map(i => i.value);
+  box.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const input = document.createElement('input');
+    input.maxLength = 20;
+    input.placeholder = i === 0 ? '😎 Your name' : `😎 Player ${i + 1}'s name`;
+    input.value = existing[i] ?? (i === 0 ? (localStorage.getItem('beasty_name') || '') : '');
+    input.style.marginTop = '6px';
+    box.appendChild(input);
+  }
+}
+
+function names(boxSel) {
+  return [...$(boxSel).querySelectorAll('input')].map(i => i.value);
+}
+
+function refreshHomeForm() {
+  // keep local + ai within the table size
+  ui.local = Math.min(ui.local, ui.total);
+  for (const b of $('#local-select').querySelectorAll('button')) {
     const n = parseInt(b.dataset.n, 10);
     b.style.display = n <= ui.total ? '' : 'none';
-    if (n > ui.total && b.classList.contains('on')) {
-      b.classList.remove('on');
-      $('#humans-select button[data-n="1"]').classList.add('on');
-      ui.humans = 1;
-    }
+    b.classList.toggle('on', n === ui.local);
   }
+  const maxAi = ui.total - ui.local;
+  ui.ai = Math.min(ui.ai, maxAi);
+  for (const b of $('#ai-select').querySelectorAll('button')) {
+    const n = parseInt(b.dataset.n, 10);
+    b.style.display = n <= maxAi ? '' : 'none';
+    b.classList.toggle('on', n === ui.ai);
+  }
+  $('#difficulty-row').style.display = ui.ai > 0 ? '' : 'none';
+  nameInputs('#local-names', ui.local);
+  const friends = ui.total - ui.local - ui.ai;
+  $('#seats-hint').textContent = friends > 0
+    ? `🔗 ${friends} seat${friends > 1 ? 's' : ''} for friends' phones (share the link after creating)`
+    : '✅ The table is complete — the game starts right away';
 }
 
 segInit('#deck-select', 'deck', 'deck');
 segInit('#total-select', 'total');
-segInit('#humans-select', 'humans');
+segInit('#local-select', 'local');
+segInit('#ai-select', 'ai');
+segInit('#difficulty-select', 'difficulty', 'd');
+$('#join-local-select').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  for (const x of $('#join-local-select').querySelectorAll('button')) x.classList.remove('on');
+  b.classList.add('on');
+  ui.joinLocal = parseInt(b.dataset.n, 10);
+  nameInputs('#join-names', ui.joinLocal);
+});
 
 async function guarded(btn, fn, errBox) {
   btn.disabled = true;
@@ -164,17 +220,19 @@ async function guarded(btn, fn, errBox) {
 }
 
 $('#create-btn').onclick = (e) => guarded(e.target, async () => {
+  const local = names('#local-names');
   const res = await api('/api/room', {
-    players: ui.total, humans: ui.humans, deck: ui.deck, name: $('#player-name').value,
+    players: ui.total, local, ai: ui.ai, difficulty: ui.difficulty, deck: ui.deck,
   });
-  localStorage.setItem('beasty_name', $('#player-name').value);
+  localStorage.setItem('beasty_name', local[0] || '');
   saveSession(res);
   startPolling();
 }, '#home-error');
 
 $('#join-btn').onclick = (e) => guarded(e.target, async () => {
-  const res = await api('/api/join', { room: roomFromUrl(), name: $('#join-name').value });
-  localStorage.setItem('beasty_name', $('#join-name').value);
+  const local = names('#join-names');
+  const res = await api('/api/join', { room: roomFromUrl(), local });
+  localStorage.setItem('beasty_name', local[0] || '');
   saveSession(res);
   startPolling();
 }, '#join-error');
@@ -192,6 +250,7 @@ $('#help-btn').onclick = () => $('#help-overlay').classList.remove('hidden');
 $('#help-close').onclick = () => {
   localStorage.setItem('beasty_seen', '1');
   $('#help-overlay').classList.add('hidden');
+  if (state && state.started) renderGame();
 };
 $('#log-btn').onclick = () => { $('#log-sheet').classList.remove('hidden'); };
 $('#log-close').onclick = () => { $('#log-sheet').classList.add('hidden'); };
@@ -246,7 +305,32 @@ function onState() {
     show('game');
     if (!localStorage.getItem('beasty_seen')) $('#help-overlay').classList.remove('hidden');
   }
+  if (!isHotseat()) {
+    revealedSeat = state.you;
+  } else if (activeLocalSeat() === null) {
+    revealedSeat = null;        // hide hands again between local turns
+    cancelAll0();
+  }
   renderGame();
+}
+
+function cancelAll0() { flow = null; preview = null; inspect = null; }
+
+function renderPassOverlay() {
+  const overlay = $('#pass-overlay');
+  const seat = activeLocalSeat();
+  const needsPass = isHotseat() && seat !== null && revealedSeat !== seat
+    && $('#help-overlay').classList.contains('hidden') && !state.finished;
+  if (!needsPass) { overlay.classList.add('hidden'); return; }
+  overlay.classList.remove('hidden');
+  $('#pass-emoji').textContent = '📱➡️';
+  $('#pass-title').innerHTML =
+    `<span class="chip p${seat}"></span>${state.players[seat].name}'s turn`;
+  $('#pass-confirm').onclick = () => {
+    revealedSeat = seat;
+    overlay.classList.add('hidden');
+    renderGame();
+  };
 }
 
 /* ---------- rendering ---------- */
@@ -281,6 +365,7 @@ function renderGame() {
   renderActionBar();
   renderChoices();
   renderLog();
+  renderPassOverlay();
   renderEnd();
 }
 
@@ -294,7 +379,8 @@ function renderPlayers() {
     el.style.borderTopColor = getComputedStyle(document.documentElement).getPropertyValue(`--p${i}`);
     if (!state.finished && state.current_player === i) el.classList.add('active');
     const score = state.scoring === 'points' ? `🏅${p.score}` : `🍸${p.in_bar}`;
-    el.innerHTML = `<span class="pname">${playerName(i)}${p.is_ai ? '🤖' : ''}</span><br>` +
+    const tag = p.is_ai ? '' : (p.mine && isHotseat() ? '📱' : '');
+    el.innerHTML = `<span class="pname">${playerName(i)}${tag}</span><br>` +
       `<span class="pmeta">✋${p.hand_count} ${score}</span>`;
     strip.appendChild(el);
   });
@@ -473,9 +559,24 @@ function decorateQueueCard(el, card, index) {
 function renderHand() {
   const box = $('#hand');
   box.innerHTML = '';
-  const myTurn = !state.finished && state.you !== null && state.current_player === state.you;
+  const hand = myHand();
+  if (!hand) {
+    // hotseat: hands stay hidden between local turns
+    const seats = mySeats();
+    if (seats.length) {
+      const count = Math.max(...seats.map(s => state.players[s].hand_count));
+      for (let i = 0; i < count; i++) {
+        const back = document.createElement('div');
+        back.className = 'card back';
+        back.innerHTML = '<div class="emoji">🐾</div>';
+        box.appendChild(back);
+      }
+    }
+    return;
+  }
+  const myTurn = !state.finished && state.current_player === hand.seat;
   const step = flow && flow.steps[0];
-  for (const card of state.hand) {
+  for (const card of hand.cards) {
     const el = handCardEl(card);
     if (step && step.type === 'pick-hand') {
       if (card.animal === flow.card) { el.classList.add('selected'); el.onclick = cancelAll; }
@@ -576,9 +677,13 @@ function renderChoices() {
     return;
   }
 
-  if (state.you === null) { showStatus('👀'); return; }
-  if (state.current_player === state.you) {
-    showStatus(state.hand.length ? '🫵 Tap a card' : '✅');
+  if (!mySeats().length) { showStatus('👀'); return; }
+  const seat = activeLocalSeat();
+  if (seat !== null) {
+    const hand = myHand();
+    showStatus(hand && hand.cards.length
+      ? (isHotseat() ? `🫵 ${state.players[seat].name} — tap a card` : '🫵 Tap a card')
+      : '✅');
   } else {
     showStatus(`⏳ ${playerName(state.current_player)}`);
   }
@@ -608,17 +713,16 @@ function stepsFor(kindName, opts) {
 }
 
 function startFlow(card) {
+  const hand = myHand();
+  const others = hand ? hand.cards.filter(c => c.animal !== card.animal) : [];
   flow = { card: card.animal, cardInfo: card, params: {}, steps: [] };
   if (card.name === 'Vulture') {
     if (state.trash_top && state.trash_top.name !== 'Vulture') {
       flow.params.revive = {};
-      flow.steps = stepsFor(state.trash_top.name, {
-        prefix: 'revive',
-        hand: state.hand.filter(c => c.animal !== card.animal),
-      });
+      flow.steps = stepsFor(state.trash_top.name, { prefix: 'revive', hand: others });
     }
   } else {
-    flow.steps = stepsFor(card.name, { hand: state.hand.filter(c => c.animal !== card.animal) });
+    flow.steps = stepsFor(card.name, { hand: others });
   }
   advanceFlow();
 }
@@ -715,8 +819,8 @@ function renderEnd() {
   if (!state.finished) { overlay.classList.add('hidden'); return; }
   overlay.classList.remove('hidden');
   const winners = state.winners || [];
-  const youWin = state.you !== null && winners.includes(state.you);
-  $('#end-title').textContent = youWin
+  const mineWin = winners.filter(w => mySeats().includes(w));
+  $('#end-title').textContent = mineWin.length && !isHotseat()
     ? (winners.length === 1 ? '🏆 You win!' : '🤝 Shared win!')
     : `🏆 ${winners.map(playerName).join(' & ')}`;
   const unit = state.scoring === 'points' ? '🏅' : '🍸';
@@ -730,10 +834,8 @@ function renderEnd() {
 /* ---------- boot ---------- */
 
 (function boot() {
-  const savedName = localStorage.getItem('beasty_name') || '';
-  $('#player-name').value = savedName;
-  $('#join-name').value = savedName;
-  clampHumans();
+  refreshHomeForm();
+  nameInputs('#join-names', ui.joinLocal);
 
   const room = roomFromUrl();
   if (!room) { show('home'); return; }

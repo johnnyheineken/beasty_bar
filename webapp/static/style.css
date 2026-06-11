@@ -404,6 +404,15 @@ input {
 }
 .card .ctrait { position: absolute; bottom: 4px; right: 6px; font-size: 12px; }
 
+.card.back {
+  background: repeating-linear-gradient(135deg, var(--panel-2) 0 10px, var(--panel-3) 10px 20px);
+  opacity: .55;
+}
+.card.back::before { background: var(--line); }
+
+#pass-emoji { font-size: 44px; margin-bottom: 6px; }
+#pass-title .chip { width: 14px; height: 14px; }
+
 .card.clickable { cursor: pointer; }
 .card.selected { outline: 3px solid var(--accent); transform: translateY(-8px); box-shadow: 0 12px 20px rgba(0,0,0,.5); }
 .card.selectable { cursor: pointer; outline: 2.5px dashed var(--accent); animation: pulse 1s infinite alternate; }

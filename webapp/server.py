@@ -21,7 +21,8 @@ from logic import GameRunner  # noqa: E402
 from safari.cards.base import ANIMALS  # noqa: E402
 from safari.cards.first_game_deck import Chameleon  # noqa: E402
 from safari.cards.new_beasts_deck import Penguin, Vulture  # noqa: E402
-from safari.players.strategies import Max, Player  # noqa: E402
+from safari.players import bots  # noqa: E402
+from safari.players.strategies import Max  # noqa: E402
 from safari.stacks.shuffle import init  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -41,30 +42,35 @@ def card_json(card):
     }
 
 
+AI_NAMES = {'easy': '🐣', 'medium': '🙂', 'hard': '🧠'}
+
+
 class Room:
-    def __init__(self, total, humans, deck, host_name):
+    def __init__(self, total, local_names, ai, deck, difficulty='medium'):
         if not 2 <= total <= 4:
             raise GameError("Beasty Bar is played by 2-4 players")
-        if not 1 <= humans <= total:
-            raise GameError("number of humans must be between 1 and the player count")
+        local_names = [n for n in (local_names or []) if True][:total] or [""]
+        if ai < 0 or len(local_names) + ai > total:
+            raise GameError("too many players for this table size")
+        if difficulty not in bots.LEVELS:
+            raise GameError("difficulty must be easy, medium or hard")
         self.id = secrets.token_urlsafe(4)
         self.deck = deck
-        self.seats = []
-        strategies = {}
-        for i in range(total):
-            if i < humans:
-                self.seats.append({"name": None, "token": None, "is_ai": False})
-                strategies[i] = Player
-            else:
-                self.seats.append({"name": f"AI {i + 1}", "token": None, "is_ai": True})
-                strategies[i] = Max
-        self.runner = GameRunner(init(strategies=strategies, deck=deck))
+        self.difficulty = difficulty
+        open_seats = total - len(local_names) - ai
+        self.seats = (
+            [{"name": None, "token": None, "is_ai": False} for _ in local_names]
+            + [{"name": None, "token": None, "is_ai": False} for _ in range(open_seats)]
+            + [{"name": f"AI {AI_NAMES[difficulty]} {i + 1}", "token": None, "is_ai": True}
+               for i in range(ai)]
+        )
+        self.runner = GameRunner(init(strategies={i: Max for i in range(total)}, deck=deck))
         self.state.scoring = 'count' if deck == 'classic' else 'points'
         self.log = []
         self.version = 0
         self.last_touch = time.time()
         self.last_ai_move = 0.0
-        self.claim_seat(host_name)
+        self.host_token, _ = self.claim_seats(local_names)
 
     # ---- seats ----
 
@@ -76,28 +82,31 @@ class Room:
     def started(self):
         return all(s["token"] or s["is_ai"] for s in self.seats)
 
-    def claim_seat(self, name):
-        # an open human seat first; otherwise take over an AI seat, so an
-        # invite link always works even if the host left the default of
-        # one human player
-        free = next((i for i, s in enumerate(self.seats)
-                     if not s["is_ai"] and s["token"] is None), None)
-        if free is None and not self.state.finished:
-            free = next((i for i, s in enumerate(self.seats) if s["is_ai"]), None)
-        if free is None:
+    def claim_seats(self, names):
+        """Claim one seat per name for a single device (token). Open human
+        seats first; otherwise take over AI seats, so an invite link always
+        works even if the host left the defaults."""
+        token = secrets.token_urlsafe(9)
+        claimed = []
+        for n, name in enumerate(names):
+            free = next((i for i, s in enumerate(self.seats)
+                         if not s["is_ai"] and s["token"] is None), None)
+            if free is None and not self.state.finished:
+                free = next((i for i, s in enumerate(self.seats) if s["is_ai"]), None)
+            if free is None:
+                break
+            seat = self.seats[free]
+            seat["is_ai"] = False
+            seat["token"] = token
+            seat["name"] = (name or "").strip()[:20] or f"Player {free + 1}"
+            claimed.append(free)
+        if not claimed:
             raise GameError("this game is already full")
-        seat = self.seats[free]
-        seat["is_ai"] = False
-        seat["token"] = secrets.token_urlsafe(9)
-        seat["name"] = (name or "").strip()[:20] or f"Player {free + 1}"
         self.bump()
-        return free, seat["token"]
+        return token, claimed
 
-    def seat_of(self, token):
-        for i, seat in enumerate(self.seats):
-            if token and seat["token"] == token:
-                return i
-        return None
+    def seats_of(self, token):
+        return [i for i, s in enumerate(self.seats) if token and s["token"] == token]
 
     def bump(self):
         self.version += 1
@@ -154,16 +163,10 @@ class Room:
         if now - self.last_ai_move < AI_DELAY:
             return
         self.last_ai_move = now
-        card = gs.table[p]["strategy"].strategy(gs.table[p]["hand"])
-        self._set_ai_defaults(card, gs.table[p]["hand"])
+        card, setup = bots.choose(self.difficulty, gs, p)
+        bots.apply_setup(card, setup, gs.table[p]["hand"])
         self._apply_turn(card)
         self._skip_finished()
-
-    def _set_ai_defaults(self, card, hand):
-        if isinstance(card, Penguin):
-            others = [c for c in hand if c is not card]
-            if others:
-                card.imitate_class = max(others, key=lambda c: int(c.value)).__class__
 
     def play_human(self, token, animal_value, params):
         seat, gs, card = self._validate_play(token, animal_value)
@@ -203,15 +206,16 @@ class Room:
     def _validate_play(self, token, animal_value):
         if not self.started:
             raise GameError("the game has not started yet")
-        seat = self.seat_of(token)
-        if seat is None:
+        seats = self.seats_of(token)
+        if not seats:
             raise GameError("you are not seated in this game")
         self._skip_finished()
         gs = self.state
         if gs.finished:
             raise GameError("the game is over")
-        if gs.current_player != seat:
+        if gs.current_player not in seats:
             raise GameError("it is not your turn")
+        seat = gs.current_player
         card = next((c for c in gs.get_player_hand(seat)
                      if int(c.value) == int(animal_value)), None)
         if card is None:
@@ -269,7 +273,7 @@ class Room:
 
     def serialize(self, token):
         gs = self.state
-        seat = self.seat_of(token)
+        seats = self.seats_of(token)
         players = []
         for i, s in enumerate(self.seats):
             info = gs.table[i]
@@ -280,6 +284,7 @@ class Room:
                 "name": s["name"] or "(open seat)",
                 "is_ai": s["is_ai"],
                 "claimed": s["is_ai"] or s["token"] is not None,
+                "mine": i in seats,
                 "hand_count": len(info["hand"]),
                 "deck_count": len(info["deck"]),
                 "in_bar": sum(1 for c in gs.cards_in_bar if c.player == i),
@@ -290,9 +295,11 @@ class Room:
             "room": self.id,
             "deck": self.deck,
             "scoring": gs.scoring,
+            "difficulty": self.difficulty,
             "started": self.started,
             "version": self.version,
-            "you": seat,
+            "you": seats[0] if seats else None,
+            "you_seats": seats,
             "players": players,
             "queue": [card_json(c) for c in gs.queue],
             "bar_count": len(gs.cards_in_bar),
@@ -302,7 +309,7 @@ class Room:
             "finished": gs.finished,
             "log": self.log[-50:],
             "log_total": len(self.log),
-            "hand": [card_json(c) for c in gs.table[seat]["hand"]] if seat is not None else [],
+            "hands": {str(i): [card_json(c) for c in gs.table[i]["hand"]] for i in seats},
         }
         if gs.finished:
             gs.update_results()
@@ -411,19 +418,24 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 if path == "/api/room":
                     prune_rooms()
+                    total = int(body.get("players", 4))
+                    local = body.get("local") or [body.get("name", "")]
+                    ai = int(body["ai"]) if "ai" in body else max(0, total - len(local))
                     room = Room(
-                        total=int(body.get("players", 4)),
-                        humans=int(body.get("humans", 1)),
+                        total=total,
+                        local_names=local,
+                        ai=ai,
                         deck=body.get("deck", "classic"),
-                        host_name=body.get("name", ""),
+                        difficulty=body.get("difficulty", "medium"),
                     )
                     ROOMS[room.id] = room
-                    seat, token = 0, room.seats[0]["token"]
-                    self._send_json({"room": room.id, "seat": seat, "token": token})
+                    seats = room.seats_of(room.host_token)
+                    self._send_json({"room": room.id, "seats": seats, "token": room.host_token})
                 elif path == "/api/join":
                     room = get_room(body.get("room", ""))
-                    seat, token = room.claim_seat(body.get("name", ""))
-                    self._send_json({"room": room.id, "seat": seat, "token": token})
+                    local = body.get("local") or [body.get("name", "")]
+                    token, seats = room.claim_seats(local)
+                    self._send_json({"room": room.id, "seats": seats, "token": token})
                 elif path == "/api/play":
                     room = get_room(body.get("room", ""))
                     room.play_human(body.get("token"), body["card"], body.get("params"))

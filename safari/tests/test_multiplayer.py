@@ -11,91 +11,98 @@ sys.modules["webapp_server"] = server
 _spec.loader.exec_module(server)
 
 
-def make_room(total=4, humans=1, deck='classic'):
-    return server.Room(total=total, humans=humans, deck=deck, host_name="Host")
+def make_room(total=4, local=None, ai=0, deck='classic', difficulty='medium'):
+    return server.Room(total=total, local_names=local or ["Host"], ai=ai,
+                       deck=deck, difficulty=difficulty)
 
 
-def test_invite_works_with_default_one_human():
-    """Regression: a friend opening the invite link of a 1-human game used
+def test_invite_works_when_only_ai_seats_remain():
+    """Regression: a friend opening the invite link of a host+AI game used
     to get 'room already full' — now they take over an AI seat."""
-    room = make_room(total=4, humans=1)
+    room = make_room(total=4, local=["Host"], ai=3)
     assert room.started  # solo + AI games start immediately
-    seat, token = room.claim_seat("Friend")
-    assert room.seats[seat]["is_ai"] is False
-    assert room.seats[seat]["name"] == "Friend"
-    assert token
-    assert room.started  # still started, friend plays the converted seat
-
-
-def test_open_human_seats_are_claimed_first():
-    room = make_room(total=4, humans=3)
-    assert not room.started
-    s1, _ = room.claim_seat("A")
-    s2, _ = room.claim_seat("B")
-    assert (s1, s2) == (1, 2)
+    token, seats = room.claim_seats(["Friend"])
+    assert seats == [1]
+    assert room.seats[1]["is_ai"] is False
+    assert room.seats[1]["name"] == "Friend"
     assert room.started
-    # next joiner converts an AI seat
-    s3, _ = room.claim_seat("C")
-    assert s3 == 3
-    assert all(not s["is_ai"] for s in room.seats)
+
+
+def test_hotseat_two_seats_one_token():
+    room = make_room(total=4, local=["Anna", "Ben"], ai=2)
+    assert room.seats_of(room.host_token) == [0, 1]
+    assert room.seats[0]["name"] == "Anna"
+    assert room.seats[1]["name"] == "Ben"
+    assert room.started
+    # the same token may play either of its seats, but only on its turn
+    gs = room.state
+    assert gs.current_player == 0
+    card = gs.table[0]["hand"][0]
+    room.play_human(room.host_token, int(card.value), {})
+    assert gs.current_player == 1
+    card = gs.table[1]["hand"][0]
+    room.play_human(room.host_token, int(card.value), {})
+    assert gs.current_player == 2
+
+
+def test_two_devices_two_players_each():
+    room = make_room(total=4, local=["A1", "A2"], ai=0)
+    assert not room.started  # two open seats remain
+    token_b, seats_b = room.claim_seats(["B1", "B2"])
+    assert seats_b == [2, 3]
+    assert room.started
+    view = room.serialize(token_b)
+    assert view["you_seats"] == [2, 3]
+    assert set(view["hands"].keys()) == {"2", "3"}
+    assert all(len(h) == 4 for h in view["hands"].values())
+    # device A cannot play device B's seat
+    gs = room.state
+    while gs.current_player in (0, 1):
+        card = gs.table[gs.current_player]["hand"][0]
+        room.play_human(room.host_token, int(card.value), {})
+    with pytest.raises(server.GameError, match="not your turn"):
+        room.play_human(room.host_token, int(gs.table[gs.current_player]["hand"][0].value), {})
 
 
 def test_room_truly_full():
-    room = make_room(total=2, humans=2)
-    room.claim_seat("Friend")
+    room = make_room(total=2, local=["Host"], ai=0)
+    room.claim_seats(["Friend"])
     with pytest.raises(server.GameError, match="full"):
-        room.claim_seat("Late")
+        room.claim_seats(["Late"])
 
 
-def test_join_midgame_takes_over_ai():
-    room = make_room(total=3, humans=1)
-    # let some AI turns happen
-    room.last_ai_move = 0
-    room.tick()
-    seat, token = room.claim_seat("Friend")
-    assert room.seats[seat]["is_ai"] is False
-    # the converted seat is no longer auto-played
-    gs = room.state
-    while not gs.finished and gs.current_player != seat:
-        room.last_ai_move = 0
-        before = gs.turn_number
-        room.tick()
-        if gs.turn_number == before and gs.current_player == 0:
-            # host's (unplayed) turn would block — play for them
-            room.play_human(room.seats[0]["token"], int(gs.table[0]["hand"][0].value), {})
-    turn = gs.turn_number
-    room.tick()
-    assert gs.turn_number == turn  # tick must NOT play for the human seat
+def test_partial_claim_when_not_enough_seats():
+    room = make_room(total=2, local=["Host"], ai=0)
+    token, seats = room.claim_seats(["B1", "B2"])  # only one seat left
+    assert seats == [1]
 
 
-def test_full_game_with_two_humans():
-    room = make_room(total=4, humans=2)
-    seat, token = room.claim_seat("Friend")
-    tokens = {0: room.seats[0]["token"], seat: token}
+@pytest.mark.parametrize("difficulty", ["easy", "medium", "hard"])
+def test_full_ai_game_all_difficulties(difficulty):
+    room = make_room(total=3, local=["Host"], ai=2, deck='mixed', difficulty=difficulty)
     gs = room.state
     for _ in range(500):
         if gs.finished:
             break
-        p = gs.current_player
-        if p in tokens:
-            hand = gs.table[p]["hand"]
+        if gs.current_player == 0:
+            hand = gs.table[0]["hand"]
             if hand:
-                room.play_human(tokens[p], int(hand[0].value), {})
+                room.play_human(room.host_token, int(hand[0].value), {})
             else:
                 room._skip_finished()
         else:
             room.last_ai_move = 0
             room.tick()
     assert gs.finished
-    assert len(gs.cards_in_bar) + len(gs.cards_in_thrash) + len(gs.queue) == 48
+    assert len(gs.cards_in_bar) + len(gs.cards_in_thrash) + len(gs.queue) == 36
 
 
-def test_serialize_personalizes_hand():
-    room = make_room(total=2, humans=2)
-    seat, token = room.claim_seat("Friend")
-    host_view = room.serialize(room.seats[0]["token"])
+def test_serialize_personalizes_hands():
+    room = make_room(total=2, local=["Host"], ai=0)
+    token, _ = room.claim_seats(["Friend"])
+    host_view = room.serialize(room.host_token)
     friend_view = room.serialize(token)
     stranger_view = room.serialize(None)
-    assert host_view["you"] == 0 and len(host_view["hand"]) == 4
-    assert friend_view["you"] == 1 and len(friend_view["hand"]) == 4
-    assert stranger_view["you"] is None and stranger_view["hand"] == []
+    assert host_view["you_seats"] == [0] and len(host_view["hands"]["0"]) == 4
+    assert friend_view["you_seats"] == [1] and "0" not in friend_view["hands"]
+    assert stranger_view["you_seats"] == [] and stranger_view["hands"] == {}

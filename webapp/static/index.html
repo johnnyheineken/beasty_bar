@@ -16,9 +16,6 @@
   <section id="screen-home" class="screen menu">
     <h1 class="neon">🍹 Beasty Bar</h1>
     <div class="panel">
-      <label for="player-name">😎 Your name</label>
-      <input id="player-name" maxlength="20" placeholder="e.g. Honza" autocomplete="nickname">
-
       <label>🃏 Deck</label>
       <div class="seg" id="deck-select">
         <button data-deck="classic" class="on">🦁<small>Classic</small></button>
@@ -27,20 +24,40 @@
       </div>
       <div class="hint" id="deck-hint">The original 12 animals · most 🍸 wins</div>
 
-      <label>🪑 Players</label>
+      <label>🪑 Players at the table</label>
       <div class="seg" id="total-select">
         <button data-n="2">2</button>
         <button data-n="3">3</button>
         <button data-n="4" class="on">4</button>
       </div>
 
-      <label>🧑‍🤝‍🧑 Humans (rest = 🤖)</label>
-      <div class="seg" id="humans-select">
+      <label>📱 On this phone</label>
+      <div class="seg" id="local-select">
         <button data-n="1" class="on">1</button>
         <button data-n="2">2</button>
         <button data-n="3">3</button>
         <button data-n="4">4</button>
       </div>
+      <div id="local-names"></div>
+
+      <label>🤖 AI players</label>
+      <div class="seg" id="ai-select">
+        <button data-n="0">0</button>
+        <button data-n="1">1</button>
+        <button data-n="2">2</button>
+        <button data-n="3" class="on">3</button>
+      </div>
+
+      <div id="difficulty-row">
+        <label>🤖 Difficulty</label>
+        <div class="seg" id="difficulty-select">
+          <button data-d="easy">🐣<small>easy</small></button>
+          <button data-d="medium" class="on">🙂<small>normal</small></button>
+          <button data-d="hard">🧠<small>hard</small></button>
+        </div>
+      </div>
+
+      <div class="hint" id="seats-hint"></div>
 
       <button id="create-btn" class="cta">Create game 🍹</button>
       <div class="hint err" id="home-error"></div>
@@ -52,8 +69,12 @@
     <h1 class="neon">🍹 Beasty Bar</h1>
     <div class="panel">
       <p style="text-align:center">🎟️ You were invited to a game!</p>
-      <label for="join-name">😎 Your name</label>
-      <input id="join-name" maxlength="20" placeholder="e.g. Katka" autocomplete="nickname">
+      <label>📱 On this phone</label>
+      <div class="seg" id="join-local-select">
+        <button data-n="1" class="on">1</button>
+        <button data-n="2">2</button>
+      </div>
+      <div id="join-names"></div>
       <button id="join-btn" class="cta">Join 🍹</button>
       <div class="hint err" id="join-error"></div>
     </div>
@@ -143,6 +164,16 @@
       <h2 id="end-title"></h2>
       <table id="end-table"></table>
       <button id="again-btn" class="cta">🔙 Menu</button>
+    </div>
+  </div>
+
+  <!-- ============ PASS THE PHONE ============ -->
+  <div id="pass-overlay" class="overlay hidden">
+    <div class="overlay-box" id="pass-box">
+      <div id="pass-emoji">📱</div>
+      <h2 id="pass-title"></h2>
+      <p class="hint">Hand over the phone, then tap</p>
+      <button id="pass-confirm" class="cta">👀 Show my cards</button>
     </div>
   </div>
 
