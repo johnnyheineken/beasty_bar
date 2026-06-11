@@ -12,27 +12,27 @@
 
   <!-- ============ HOME ============ -->
   <section id="screen-home" class="screen">
-    <h1>🍹 Beasty Bar</h1>
+    <h1 class="neon">🍹 Beasty Bar</h1>
     <div class="panel">
-      <label for="player-name">Your name</label>
+      <label for="player-name">😎 Your name</label>
       <input id="player-name" maxlength="20" placeholder="e.g. Honza" autocomplete="nickname">
 
-      <label>Deck</label>
+      <label>🃏 Deck</label>
       <div class="seg" id="deck-select">
-        <button data-deck="classic" class="on">🦁 Classic</button>
-        <button data-deck="new_beasts">🦏 New Beasts</button>
-        <button data-deck="mixed">🔀 Mixed</button>
+        <button data-deck="classic" class="on">🦁<small>Classic</small></button>
+        <button data-deck="new_beasts">🦏<small>New&nbsp;Beasts</small></button>
+        <button data-deck="mixed">🔀<small>Mixed</small></button>
       </div>
-      <div class="hint" id="deck-hint">The original 12 animals. Most guests in the bar wins.</div>
+      <div class="hint" id="deck-hint">The original 12 animals · most 🍸 wins</div>
 
-      <label>Players at the table</label>
+      <label>🪑 Players</label>
       <div class="seg" id="total-select">
         <button data-n="2">2</button>
         <button data-n="3">3</button>
         <button data-n="4" class="on">4</button>
       </div>
 
-      <label>Humans (the rest are 🤖)</label>
+      <label>🧑‍🤝‍🧑 Humans (rest = 🤖)</label>
       <div class="seg" id="humans-select">
         <button data-n="1" class="on">1</button>
         <button data-n="2">2</button>
@@ -40,36 +40,36 @@
         <button data-n="4">4</button>
       </div>
 
-      <button id="create-btn" class="cta">Create game</button>
+      <button id="create-btn" class="cta">Create game 🍹</button>
       <div class="hint err" id="home-error"></div>
     </div>
   </section>
 
   <!-- ============ JOIN ============ -->
   <section id="screen-join" class="screen hidden">
-    <h1>🍹 Beasty Bar</h1>
+    <h1 class="neon">🍹 Beasty Bar</h1>
     <div class="panel">
-      <p>You were invited to a game!</p>
-      <label for="join-name">Your name</label>
+      <p style="text-align:center">🎟️ You were invited to a game!</p>
+      <label for="join-name">😎 Your name</label>
       <input id="join-name" maxlength="20" placeholder="e.g. Katka" autocomplete="nickname">
-      <button id="join-btn" class="cta">Join the game</button>
+      <button id="join-btn" class="cta">Join 🍹</button>
       <div class="hint err" id="join-error"></div>
     </div>
   </section>
 
   <!-- ============ LOBBY ============ -->
   <section id="screen-lobby" class="screen hidden">
-    <h1>🍹 Beasty Bar</h1>
+    <h1 class="neon">🍹 Beasty Bar</h1>
     <div class="panel">
-      <h2>Waiting for players…</h2>
+      <h2>⏳ Waiting for players…</h2>
       <div id="lobby-seats"></div>
-      <label>Invite link — send it to your friends</label>
+      <label>🔗 Invite link — send it to your friends</label>
       <div class="invite">
         <input id="invite-link" readonly>
-        <button id="copy-btn">Copy</button>
-        <button id="share-btn">Share</button>
+        <button id="copy-btn">📋</button>
+        <button id="share-btn">📤</button>
       </div>
-      <div class="hint">The game starts as soon as every seat is taken.</div>
+      <div class="hint">Friends can also join a running game — they take over a 🤖 seat.</div>
     </div>
   </section>
 
@@ -78,25 +78,38 @@
     <div id="topbar">
       <span id="deck-badge"></span>
       <div id="players-strip"></div>
+      <button id="help-btn" title="How to play">❓</button>
     </div>
 
     <div id="piles">
       <div class="pile" id="bar-pile">
-        <span class="pile-title">🍸 Bar</span>
+        <span class="pile-title">🍸</span>
         <span class="pile-count" id="bar-count">0</span>
       </div>
       <div id="status"></div>
       <div class="pile" id="trash-pile">
-        <span class="pile-title">🚮 That's&nbsp;it</span>
+        <span class="pile-title">🚮</span>
         <span class="pile-count" id="trash-count">0</span>
         <div id="trash-top"></div>
       </div>
     </div>
 
     <div id="queue-row">
-      <div class="gate">🚪</div>
+      <div class="gate" id="gate-in">🚪</div>
       <div id="queue"></div>
       <div class="gate out">⛔</div>
+    </div>
+
+    <div id="action-bar" class="hidden">
+      <div id="action-info">
+        <span id="action-emoji"></span>
+        <div>
+          <div id="action-title"></div>
+          <div id="action-icons"></div>
+          <div id="action-text"></div>
+        </div>
+      </div>
+      <div id="action-buttons"></div>
     </div>
 
     <div id="choice-buttons"></div>
@@ -106,19 +119,33 @@
     </div>
 
     <details id="log-panel">
-      <summary>Game log</summary>
+      <summary>📜 Log</summary>
       <div id="log"></div>
     </details>
   </section>
 
-  <!-- ============ END OVERLAY ============ -->
-  <div id="end-overlay" class="hidden">
-    <div id="end-box">
-      <h2 id="end-title"></h2>
-      <table id="end-table"></table>
-      <button id="again-btn" class="cta">Back to menu</button>
+  <!-- ============ HELP ============ -->
+  <div id="help-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>🍹 Beasty Bar</h2>
+      <div class="help-row"><span>🐾</span><p>Get your animals into the bar. When <b>5</b> wait in line: first <b>2</b> → 🍸, last <b>1</b> → 🚮</p></div>
+      <div class="help-row"><span>🃏</span><p>Tap a card to <b>see what it does</b>, then ▶ to play it</p></div>
+      <div class="help-row"><span>👆</span><p>When a choice is needed, tap one of the <b>glowing</b> cards or buttons</p></div>
+      <div class="help-row"><span>🔁</span><p>= acts again on <b>every</b> turn &nbsp;·&nbsp; 🛡️ = protects &nbsp;·&nbsp; 🎭 = copies</p></div>
+      <button id="help-close" class="cta">Let's party 🎉</button>
     </div>
   </div>
+
+  <!-- ============ END ============ -->
+  <div id="end-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2 id="end-title"></h2>
+      <table id="end-table"></table>
+      <button id="again-btn" class="cta">🔙 Menu</button>
+    </div>
+  </div>
+
+  <div id="fly-layer"></div>
 
   <script src="app.js"></script>
 </body>

@@ -6,37 +6,72 @@ const EMOJI = {
   Rhino: '🦏', Bear: '🐻', Tiger: '🐯', Cheetah: '🐆', Llama: '🦙', Porcupine: '🦔',
   Ostrich: '🦤', Penguin: '🐧', Dog: '🐕', Peacock: '🦚', Vulture: '🦅', Bat: '🦇',
 };
-const LABEL = { Gazelle: 'Giraffe', Croc: 'Croc' };
+const LABEL = { Gazelle: 'Giraffe' };
+
+/* Pictogram language:
+   🔁 recurring · ♾️ always on · 🛡️ protects · 🎭 copies · ↕️ sorts
+   ⏩ pushes forward · 🔄 reverses · ↷ jumps · 🚮 throws out · 😋 eats */
+const ICONS = {
+  Lion:      '🚮🐒 ⏩🚪',
+  Hippo:     '🔁 ⏩ ✋🦁🦓🦛',
+  Croc:      '🔁 😋⬅️ ✋🦁🦛🦓',
+  Snake:     '↕️ 💪→🚪',
+  Gazelle:   '🔁 ↷1️⃣🐭',
+  Zebra:     '♾️🛡️ ⛔🦛🐊',
+  Seal:      '🔄 🚪⇄⛔',
+  Chameleon: '🎭 ⬇️👀',
+  Monkey:    '🐒🐒 🚮🦛🐊 ⏩🚪',
+  Kangaroo:  '↷ 1️⃣/2️⃣',
+  Parrot:    '🚮 👆',
+  Skunk:     '🚮 💪💪',
+  Rhino:     '🚮💪 📍',
+  Bear:      '🐭🐭 ↩️',
+  Tiger:     '🔁 ↷ 😋🐭 📍',
+  Cheetah:   '😋🐭 📍',
+  Llama:     '🔁 💦⬅️ ↩️',
+  Porcupine: '♾️🛡️ 🪃🦏🐯🐆',
+  Ostrich:   '🏃 2️⃣4️⃣6️⃣/1️⃣3️⃣5️⃣',
+  Penguin:   '🎭 ✋👀',
+  Dog:       '↕️ 🐭→🚪',
+  Peacock:   '📍 ⬅️💪',
+  Vulture:   '♻️ 🚮🔝',
+  Bat:       '👆📍 🚪=💥',
+};
 const HINTS = {
-  Lion: 'Throws out all monkeys, goes to the front. A second lion is thrown out itself.',
-  Hippo: 'Recurring: pushes to the front; blocked by lions, zebras, hippos.',
-  Croc: 'Recurring: eats all weaker animals ahead; blocked by stronger animals and zebras.',
-  Snake: 'Sorts the queue, strongest at the gate.',
-  Gazelle: 'Recurring: steps over one weaker animal per turn.',
-  Zebra: 'Blocks hippos and crocs; protects everyone in front of it.',
-  Seal: 'Reverses the whole queue.',
-  Chameleon: 'Copies a species in the queue, with its strength, then is a 5 again.',
-  Monkey: 'With another monkey present: throws out hippos & crocs, monkeys storm the gate.',
-  Kangaroo: 'Jumps over the last one or two animals — your choice.',
-  Parrot: 'Shoos one animal of your choice out of the queue.',
-  Skunk: 'Throws out all animals of the two strongest species (never skunks).',
-  Rhino: 'Rams the strongest animal out of the queue and takes its place.',
-  Bear: 'Sends all animals of the two weakest strengths to the back of the line.',
-  Tiger: 'Recurring: leaps two places ahead and eats that animal if weaker.',
-  Cheetah: 'Eats the weakest animal in the line and takes its place.',
-  Llama: 'Recurring: spits the animal in front of it (if ≤7) to the back of the line.',
-  Porcupine: 'Reflects rhino/tiger/cheetah attacks back at the attacker. Permanent.',
-  Ostrich: 'Runs past all even OR all odd animals — your choice.',
-  Penguin: 'Acts as another animal from your hand (the card stays in your hand).',
-  Dog: 'Sorts the queue, weakest at the gate.',
-  Peacock: 'Stands directly in front of the strongest animal.',
-  Vulture: 'Revives the top card of the trash pile, then lands on the trash itself.',
-  Bat: 'Replaces any animal in the queue — but burns up if ever first in line.',
+  Lion: 'Monkeys out, then goes first. A 2nd lion is thrown out itself.',
+  Hippo: 'Every turn: pushes forward. Stopped by lion, zebra, hippo.',
+  Croc: 'Every turn: eats all weaker ahead. Stopped by stronger & zebra.',
+  Snake: 'Sorts the line — strongest at the gate.',
+  Gazelle: 'Every turn: steps over one weaker animal.',
+  Zebra: 'Wall for hippos & crocs — protects everyone ahead of it.',
+  Seal: 'Gate and exit swap — the line reverses.',
+  Chameleon: 'Acts as a species from the line, then is a 5 again.',
+  Monkey: '2+ monkeys: hippos & crocs out, monkeys storm the gate.',
+  Kangaroo: 'Jumps over the last 1 or 2 animals.',
+  Parrot: 'Throws out any one animal you pick.',
+  Skunk: 'Throws out the two strongest species (never skunks).',
+  Rhino: 'Rams the strongest animal & takes its spot.',
+  Bear: 'The two weakest ranks go to the back of the line.',
+  Tiger: 'Every turn: leaps 2 ahead, eats it if weaker.',
+  Cheetah: 'Eats the weakest animal & takes its spot.',
+  Llama: 'Every turn: spits the animal ahead (≤7) to the back.',
+  Porcupine: 'Rhino/tiger/cheetah attacks bounce back at the attacker.',
+  Ostrich: 'Runs past all even OR all odd values — you pick.',
+  Penguin: 'Acts as another card from your hand (it stays in hand).',
+  Dog: 'Sorts the line — weakest at the gate.',
+  Peacock: 'Steps right in front of the strongest animal.',
+  Vulture: 'Brings the top trash card back to life, then lands on the trash.',
+  Bat: 'Replaces any animal — but burns up whenever it is first in line!',
+};
+const TRAIT = {   // mini icon shown on the card itself
+  Hippo: '🔁', Croc: '🔁', Gazelle: '🔁', Tiger: '🔁', Llama: '🔁',
+  Zebra: '🛡️', Porcupine: '🛡️', Chameleon: '🎭', Penguin: '🎭',
+  Bat: '💥', Vulture: '♻️', Seal: '🔄', Snake: '↕️', Dog: '↕️',
 };
 const DECK_HINTS = {
-  classic: 'The original 12 animals. Most guests in the bar wins.',
-  new_beasts: 'The 12 expansion animals. Card points decide the winner.',
-  mixed: 'A random mix of both sets per player (one animal per value). Points win.',
+  classic: 'The original 12 animals · most 🍸 wins',
+  new_beasts: 'The 12 expansion animals · 🏅 points win',
+  mixed: 'Random mix of both sets · 🏅 points win',
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -44,31 +79,32 @@ const POLL_MS = 1100;
 
 let state = null;
 let flow = null;            // pending multi-step choice
+let inspect = null;         // card being looked at in the action bar
 let pollTimer = null;
-let lastLogLen = 0;
+let lastLogLen = null;
 let session = null;         // {room, token, seat}
+let prevRects = {};         // queue card key -> DOMRect (for FLIP)
+let prevCounts = { bar: 0, trash: 0 };
 const ui = { deck: 'classic', total: 4, humans: 1 };
 
 function label(name) { return LABEL[name] || name; }
+function cardKey(c) { return `${c.name}-${c.player}`; }
 function playerName(id) {
   if (!state) return `Player ${id + 1}`;
-  const p = state.players[id];
-  return (state.you === id) ? 'You' : p.name;
+  return (state.you === id) ? 'You' : state.players[id].name;
 }
 
-/* ---------- session storage / routing ---------- */
+/* ---------- session / routing ---------- */
 
 function roomFromUrl() {
   const m = location.hash.match(/r=([\w-]+)/);
   return m ? m[1] : null;
 }
-
 function saveSession(s) {
   session = s;
   localStorage.setItem('beasty_' + s.room, JSON.stringify(s));
   location.hash = 'r=' + s.room;
 }
-
 function loadSession(room) {
   try { return JSON.parse(localStorage.getItem('beasty_' + room)); }
   catch { return null; }
@@ -121,33 +157,41 @@ segInit('#deck-select', 'deck', 'deck');
 segInit('#total-select', 'total');
 segInit('#humans-select', 'humans');
 
-$('#create-btn').onclick = async () => {
-  try {
-    const res = await api('/api/room', {
-      players: ui.total, humans: ui.humans, deck: ui.deck,
-      name: $('#player-name').value,
-    });
-    localStorage.setItem('beasty_name', $('#player-name').value);
-    saveSession(res);
-    startPolling();
-  } catch (e) { $('#home-error').textContent = e.message; }
-};
+async function guarded(btn, fn, errBox) {
+  btn.disabled = true;
+  try { await fn(); }
+  catch (e) { $(errBox).textContent = '⚠️ ' + e.message; }
+  finally { btn.disabled = false; }
+}
 
-$('#join-btn').onclick = async () => {
-  try {
-    const res = await api('/api/join', { room: roomFromUrl(), name: $('#join-name').value });
-    localStorage.setItem('beasty_name', $('#join-name').value);
-    saveSession(res);
-    startPolling();
-  } catch (e) { $('#join-error').textContent = e.message; }
-};
+$('#create-btn').onclick = (e) => guarded(e.target, async () => {
+  const res = await api('/api/room', {
+    players: ui.total, humans: ui.humans, deck: ui.deck, name: $('#player-name').value,
+  });
+  localStorage.setItem('beasty_name', $('#player-name').value);
+  saveSession(res);
+  startPolling();
+}, '#home-error');
+
+$('#join-btn').onclick = (e) => guarded(e.target, async () => {
+  const res = await api('/api/join', { room: roomFromUrl(), name: $('#join-name').value });
+  localStorage.setItem('beasty_name', $('#join-name').value);
+  saveSession(res);
+  startPolling();
+}, '#join-error');
 
 $('#again-btn').onclick = () => {
   stopPolling();
   $('#end-overlay').classList.add('hidden');
   location.hash = '';
-  state = null; session = null; flow = null; lastLogLen = 0;
+  state = null; session = null; flow = null; inspect = null; lastLogLen = null;
   show('home');
+};
+
+$('#help-btn').onclick = () => $('#help-overlay').classList.remove('hidden');
+$('#help-close').onclick = () => {
+  localStorage.setItem('beasty_seen', '1');
+  $('#help-overlay').classList.add('hidden');
 };
 
 /* ---------- lobby ---------- */
@@ -159,22 +203,21 @@ function renderLobby() {
   state.players.forEach((p, i) => {
     const div = document.createElement('div');
     div.className = 'seat' + (p.claimed ? '' : ' open');
-    div.innerHTML = `<span class="who"><span class="chip p${i}"></span>${p.claimed ? p.name : 'waiting for a friend…'}</span>` +
+    div.innerHTML = `<span class="who"><span class="chip p${i}"></span>${p.claimed ? p.name : 'waiting…'}</span>` +
       `<span>${p.is_ai ? '🤖' : (p.claimed ? '✅' : '⏳')}</span>`;
     seats.appendChild(div);
   });
-  const link = location.origin + '/#r=' + session.room;
-  $('#invite-link').value = link;
+  $('#invite-link').value = location.origin + '/#r=' + session.room;
 }
 
 $('#copy-btn').onclick = async () => {
   try { await navigator.clipboard.writeText($('#invite-link').value); $('#copy-btn').textContent = '✅'; }
   catch { $('#invite-link').select(); document.execCommand('copy'); }
-  setTimeout(() => { $('#copy-btn').textContent = 'Copy'; }, 1200);
+  setTimeout(() => { $('#copy-btn').textContent = '📋'; }, 1200);
 };
 $('#share-btn').onclick = () => {
   const url = $('#invite-link').value;
-  if (navigator.share) navigator.share({ title: 'Beasty Bar', text: 'Join my Beasty Bar game!', url });
+  if (navigator.share) navigator.share({ title: 'Beasty Bar', text: 'Join my Beasty Bar game! 🍹', url });
   else $('#copy-btn').click();
 };
 
@@ -193,36 +236,38 @@ function startPolling() {
   };
   poll();
 }
-
 function stopPolling() { clearTimeout(pollTimer); pollTimer = null; }
 
 function onState() {
   if (!state.started) { renderLobby(); return; }
-  if ($('#screen-game').classList.contains('hidden')) show('game');
+  if ($('#screen-game').classList.contains('hidden')) {
+    show('game');
+    if (!localStorage.getItem('beasty_seen')) $('#help-overlay').classList.remove('hidden');
+  }
   renderGame();
 }
 
-/* ---------- game rendering ---------- */
+/* ---------- rendering ---------- */
 
-function cardEl(card, opts = {}) {
+function cardEl(card) {
   const el = document.createElement('div');
   el.className = `card p${card.player}`;
-  el.title = `${label(card.name)} (${card.animal}) — ${HINTS[card.name] || ''}`;
+  el.dataset.key = cardKey(card);
   el.innerHTML = `
     <div class="cvalue">${card.animal}</div>
     <div class="emoji">${EMOJI[card.name] || '❓'}</div>
-    <div class="cname">${label(card.name)}</div>`;
-  if (opts.entering) el.classList.add('entering');
+    ${TRAIT[card.name] ? `<div class="ctrait">${TRAIT[card.name]}</div>` : ''}`;
   return el;
 }
 
 function renderGame() {
   $('#deck-badge').textContent =
-    state.deck === 'classic' ? '🦁 classic' : state.deck === 'new_beasts' ? '🦏 new beasts' : '🔀 mixed';
+    state.deck === 'classic' ? '🦁' : state.deck === 'new_beasts' ? '🦏' : '🔀';
   renderPlayers();
   renderPiles();
   renderQueue();
   renderHand();
+  renderActionBar();
   renderChoices();
   renderLog();
   renderEnd();
@@ -236,9 +281,9 @@ function renderPlayers() {
     el.className = 'pchip';
     el.style.borderTopColor = getComputedStyle(document.documentElement).getPropertyValue(`--p${i}`);
     if (!state.finished && state.current_player === i) el.classList.add('active');
-    const score = state.scoring === 'points' ? `${p.score}pt` : `🍸${p.in_bar}`;
-    el.innerHTML = `<span class="pname">${playerName(i)}${p.is_ai ? ' 🤖' : ''}</span><br>` +
-      `<span class="pmeta">✋${p.hand_count} 🂠${p.deck_count} ${score}</span>`;
+    const score = state.scoring === 'points' ? `🏅${p.score}` : `🍸${p.in_bar}`;
+    el.innerHTML = `<span class="pname">${playerName(i)}${p.is_ai ? '🤖' : ''}</span><br>` +
+      `<span class="pmeta">✋${p.hand_count} ${score}</span>`;
     strip.appendChild(el);
   });
 }
@@ -247,17 +292,36 @@ function renderPiles() {
   $('#bar-count').textContent = state.bar_count;
   $('#trash-count').textContent = state.trash_count;
   $('#trash-top').textContent = state.trash_top
-    ? `top: ${EMOJI[state.trash_top.name]} ${state.trash_top.animal}` : '';
+    ? `${EMOJI[state.trash_top.name]}${state.trash_top.animal}` : '·';
+  if (state.bar_count !== prevCounts.bar) bumpPile('#bar-pile');
+  if (state.trash_count !== prevCounts.trash) bumpPile('#trash-pile');
+  prevCounts = { bar: state.bar_count, trash: state.trash_count };
+}
+
+function bumpPile(sel) {
+  const el = $(sel);
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
 }
 
 function renderQueue() {
   const box = $('#queue');
+
+  // FLIP step 1: remember where each card was
+  const oldRects = {};
+  for (const el of box.querySelectorAll('.card')) {
+    oldRects[el.dataset.key] = el.getBoundingClientRect();
+  }
+
   box.innerHTML = '';
+  const total = state.log_total ?? state.log.length;
+  const newCount = lastLogLen === null ? 0 : Math.max(0, total - lastLogLen);
+  const freshEntries = newCount ? state.log.slice(-Math.min(newCount, state.log.length)) : [];
   const lastEntry = state.log[state.log.length - 1];
-  const fresh = state.log.length > lastLogLen ? lastEntry : null;
+  const isFreshTurn = freshEntries.length > 0;
   state.queue.forEach((card, i) => {
-    const entering = fresh && fresh.played.name === card.name && fresh.played.player === card.player;
-    const el = cardEl(card, { entering });
+    const el = cardEl(card);
     decorateQueueCard(el, card, i);
     box.appendChild(el);
   });
@@ -266,19 +330,71 @@ function renderQueue() {
     slot.className = 'slot';
     box.appendChild(slot);
   }
-  lastLogLen = state.log.length;
+
+  // FLIP step 2: animate moved cards from old to new position
+  requestAnimationFrame(() => {
+    for (const el of box.querySelectorAll('.card')) {
+      const old = oldRects[el.dataset.key];
+      if (old) {
+        const now = el.getBoundingClientRect();
+        const dx = old.left - now.left, dy = old.top - now.top;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+          el.style.transform = `translate(${dx}px, ${dy}px)`;
+          void el.offsetWidth;
+          el.classList.add('moving');
+          el.style.transform = '';
+          el.addEventListener('transitionend', () => el.classList.remove('moving'), { once: true });
+        }
+      } else if (isFreshTurn && lastEntry &&
+                 el.dataset.key === cardKey(lastEntry.played)) {
+        el.classList.add('entering');
+      }
+    }
+  });
+
+  // fly removed cards to the piles
+  for (const entry of freshEntries) {
+    flyCards(entry.to_bar, oldRects, '#bar-pile');
+    flyCards(entry.to_trash, oldRects, '#trash-pile');
+  }
+  lastLogLen = total;
+}
+
+function flyCards(cards, oldRects, pileSel) {
+  const pile = $(pileSel).getBoundingClientRect();
+  for (const c of cards) {
+    const from = oldRects[cardKey(c)];
+    if (!from) continue;   // wasn't visible in the line
+    const ghost = cardEl(c);
+    ghost.style.left = from.left + 'px';
+    ghost.style.top = from.top + 'px';
+    ghost.style.width = from.width + 'px';
+    ghost.style.height = from.height + 'px';
+    $('#fly-layer').appendChild(ghost);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      ghost.style.left = (pile.left + pile.width / 2 - from.width / 4) + 'px';
+      ghost.style.top = pile.top + 'px';
+      ghost.style.transform = 'scale(.4) rotate(8deg)';
+      ghost.style.opacity = '0';
+    }));
+    setTimeout(() => ghost.remove(), 800);
+  }
 }
 
 function decorateQueueCard(el, card, index) {
-  if (!flow) return;
-  const step = flow.steps[0];
-  if (!step) return;
-  if (step.type === 'pick-queue' || (step.type === 'pick-species' && card.name !== 'Chameleon')) {
-    el.classList.add('selectable');
-    el.onclick = () => onQueuePick(card, index);
-  } else {
-    el.classList.add('dimmed');
+  if (flow) {
+    const step = flow.steps[0];
+    if (step && (step.type === 'pick-queue' || (step.type === 'pick-species' && card.name !== 'Chameleon'))) {
+      el.classList.add('selectable');
+      el.onclick = () => onQueuePick(card, index);
+    } else {
+      el.classList.add('dimmed');
+    }
+    return;
   }
+  // no flow: tapping a queue card explains it
+  el.classList.add('clickable');
+  el.onclick = () => { inspect = { card, inHand: false }; renderGame(); };
 }
 
 function renderHand() {
@@ -295,14 +411,37 @@ function renderHand() {
       el.classList.toggle('selected', card.animal === flow.card);
       el.classList.toggle('dimmed', card.animal !== flow.card);
       if (card.animal === flow.card) el.onclick = cancelFlow;
-    } else if (myTurn) {
-      el.classList.add('clickable');
-      el.onclick = () => startFlow(card);
     } else {
-      el.classList.add('dimmed');
+      el.classList.add('clickable');
+      if (inspect && inspect.inHand && inspect.card.animal === card.animal) el.classList.add('selected');
+      el.onclick = () => { inspect = { card, inHand: true, playable: myTurn }; renderGame(); };
     }
     box.appendChild(el);
   }
+}
+
+function renderActionBar() {
+  const bar = $('#action-bar');
+  if (!inspect || flow) { bar.classList.add('hidden'); return; }
+  const c = inspect.card;
+  bar.classList.remove('hidden');
+  $('#action-emoji').textContent = EMOJI[c.name];
+  $('#action-title').textContent = `${label(c.name)} · ${c.animal}`;
+  $('#action-icons').textContent = ICONS[c.name] || '';
+  $('#action-text').textContent = HINTS[c.name] || '';
+  const btns = $('#action-buttons');
+  btns.innerHTML = '';
+  if (inspect.inHand && inspect.playable) {
+    const play = document.createElement('button');
+    play.className = 'primary';
+    play.textContent = '▶ Play';
+    play.onclick = () => { const card = inspect.card; inspect = null; startFlow(card); };
+    btns.appendChild(play);
+  }
+  const close = document.createElement('button');
+  close.textContent = '✕';
+  close.onclick = () => { inspect = null; renderGame(); };
+  btns.appendChild(close);
 }
 
 function showStatus(msg) { $('#status').textContent = msg; }
@@ -310,7 +449,7 @@ function showStatus(msg) { $('#status').textContent = msg; }
 function renderChoices() {
   const buttons = $('#choice-buttons');
   buttons.innerHTML = '';
-  if (state.finished) { showStatus('Game over.'); return; }
+  if (state.finished) { showStatus('🏁 Game over'); return; }
 
   if (flow) {
     const step = flow.steps[0];
@@ -320,7 +459,7 @@ function renderChoices() {
         if (n > state.queue.length) continue;
         const b = document.createElement('button');
         b.className = 'primary';
-        b.textContent = `Jump over ${n}`;
+        b.textContent = `↷ ${n}`;
         b.onclick = () => answerStep({ [step.param || 'jump']: n });
         buttons.appendChild(b);
       }
@@ -329,47 +468,45 @@ function renderChoices() {
       for (const par of ['even', 'odd']) {
         const b = document.createElement('button');
         b.className = 'primary';
-        b.textContent = par === 'even' ? 'Run past EVEN (2,4,6…)' : 'Run past ODD (1,3,5…)';
+        b.textContent = par === 'even' ? '2️⃣ 4️⃣ 6️⃣' : '1️⃣ 3️⃣ 5️⃣';
         b.onclick = () => answerStep({ [step.param || 'parity']: par });
         buttons.appendChild(b);
       }
     }
     const cancel = document.createElement('button');
-    cancel.textContent = 'Cancel';
+    cancel.textContent = '✕';
     cancel.onclick = cancelFlow;
     buttons.appendChild(cancel);
     return;
   }
 
-  if (state.you === null) { showStatus('You are watching this game.'); return; }
+  if (state.you === null) { showStatus('👀 Watching'); return; }
   if (state.current_player === state.you) {
-    showStatus(state.hand.length ? 'Your turn — tap a card.' : 'No cards left — waiting for the others.');
+    showStatus(state.hand.length ? '🫵 Your turn — tap a card' : '✅ No cards left');
   } else {
-    showStatus(`${playerName(state.current_player)} is thinking…`);
+    showStatus(`⏳ ${playerName(state.current_player)}…`);
   }
 }
 
-/* ---------- choice flow ----------
-   flow = { card: <hand card value>, params: {}, reviveMode: bool, steps: [...] } */
+/* ---------- choice flow ---------- */
 
 function stepsFor(kindName, opts) {
-  // opts: {prefix: '' | 'revive', queueLen, hand}
   const into = opts.prefix === 'revive';
   const q = state.queue.length;
   const steps = [];
-  const who = into ? `${label(kindName)} (revived)` : label(kindName);
+  const e = EMOJI[kindName];
   if (kindName === 'Parrot' && q) {
-    steps.push({ type: 'pick-queue', into, param: 'target_index', prompt: `🦜 ${who}: tap the animal to throw out.` });
+    steps.push({ type: 'pick-queue', into, param: 'target_index', prompt: `${e} Tap who flies out 🚮` });
   } else if (kindName === 'Kangaroo' && q >= 2) {
-    steps.push({ type: 'jump', into, param: 'jump', prompt: `🦘 ${who}: jump over how many animals?` });
+    steps.push({ type: 'jump', into, param: 'jump', prompt: `${e} Jump over how many?` });
   } else if (kindName === 'Bat' && q) {
-    steps.push({ type: 'pick-queue', into, param: 'target_index', prompt: `🦇 ${who}: tap the animal to replace (first position burns the bat!).` });
+    steps.push({ type: 'pick-queue', into, param: 'target_index', prompt: `${e} Tap whose spot to take (🚪 = 💥!)` });
   } else if (kindName === 'Ostrich' && q) {
-    steps.push({ type: 'parity', into, param: 'parity', prompt: `🦤 ${who}: run past even or odd values?` });
+    steps.push({ type: 'parity', into, param: 'parity', prompt: `${e} Run past which values?` });
   } else if (kindName === 'Chameleon' && state.queue.some(c => c.name !== 'Chameleon')) {
-    steps.push({ type: 'pick-species', into, param: 'imitate', prompt: '🦎 Chameleon: tap the species to imitate.' });
+    steps.push({ type: 'pick-species', into, param: 'imitate', prompt: `${e} Tap the species to copy 🎭` });
   } else if (kindName === 'Penguin' && opts.hand && opts.hand.length) {
-    steps.push({ type: 'pick-hand', into, param: 'imitate_value', prompt: '🐧 Penguin: tap the hand card to imitate.' });
+    steps.push({ type: 'pick-hand', into, param: 'imitate_value', prompt: `${e} Tap a hand card to copy 🎭` });
   }
   return steps;
 }
@@ -385,15 +522,14 @@ function startFlow(card) {
       });
     }
   } else {
-    flow.steps = stepsFor(card.name, { hand: state.hand.filter(c => c !== card && c.animal !== card.animal) });
+    flow.steps = stepsFor(card.name, { hand: state.hand.filter(c => c.animal !== card.animal) });
   }
   advanceFlow();
 }
 
 function answerStep(answer) {
   const step = flow.steps.shift();
-  const bucket = step.into ? flow.params.revive : flow.params;
-  Object.assign(bucket, answer);
+  Object.assign(step.into ? flow.params.revive : flow.params, answer);
   advanceFlow();
 }
 
@@ -403,9 +539,7 @@ function onQueuePick(card, index) {
     answerStep({ [step.param]: index });
   } else if (step.type === 'pick-species') {
     flow.steps.shift();
-    const bucket = step.into ? flow.params.revive : flow.params;
-    bucket[step.param] = card.animal;
-    // the imitated species may itself need a decision (e.g. parrot target)
+    (step.into ? flow.params.revive : flow.params)[step.param] = card.animal;
     const nested = stepsFor(card.name, { prefix: step.into ? 'revive' : '', hand: [] });
     nested.forEach(s => { s.into = step.into; });
     flow.steps = nested.concat(flow.steps);
@@ -416,8 +550,7 @@ function onQueuePick(card, index) {
 function onHandPick(card) {
   const step = flow.steps[0];
   flow.steps.shift();
-  const bucket = step.into ? flow.params.revive : flow.params;
-  bucket[step.param] = card.animal;
+  (step.into ? flow.params.revive : flow.params)[step.param] = card.animal;
   const nested = stepsFor(card.name, { prefix: step.into ? 'revive' : '', hand: [] });
   nested.forEach(s => { s.into = step.into; });
   flow.steps = nested.concat(flow.steps);
@@ -434,12 +567,10 @@ function advanceFlow() {
   renderGame();
 }
 
-function cancelFlow() {
-  flow = null;
-  renderGame();
-}
+function cancelFlow() { flow = null; renderGame(); }
 
 async function playCard(animal, params) {
+  flow = null; inspect = null;
   try {
     state = await api('/api/play', { room: session.room, token: session.token, card: animal, params });
     onState();
@@ -456,18 +587,18 @@ function renderLog() {
   for (const e of state.log) {
     const div = document.createElement('div');
     div.className = 'log-entry';
-    const played = `<span class="chip p${e.player}"></span><b>${playerName(e.player)}</b> played ` +
+    const played = `<span class="chip p${e.player}"></span><b>${playerName(e.player)}</b> ▶ ` +
       `${EMOJI[e.played.name]} ${label(e.played.name)}` +
-      (e.as ? ` as ${label(e.as)}` : '');
+      (e.as ? ` 🎭${EMOJI[e.as] || label(e.as)}` : '');
     const parts = [played];
     if (e.to_trash.length) {
-      parts.push(`<span class="trash-note">🚮 out: ${e.to_trash.map(c => EMOJI[c.name] + ' P' + (c.player + 1)).join(', ')}</span>`);
+      parts.push(`<span class="trash-note">🚮 ${e.to_trash.map(c => EMOJI[c.name]).join(' ')}</span>`);
     }
     if (e.to_bar.length) {
-      const note = e.gate_opened ? '<span class="gate-note">🚪 Gate opened!</span> ' : '';
-      parts.push(note + `<span class="bar-note">🍸 in: ${e.to_bar.map(c => EMOJI[c.name] + ' P' + (c.player + 1)).join(', ')}</span>`);
+      const note = e.gate_opened ? '<span class="gate-note">🚪✨</span> ' : '';
+      parts.push(note + `<span class="bar-note">🍸 ${e.to_bar.map(c => EMOJI[c.name]).join(' ')}</span>`);
     }
-    div.innerHTML = parts.join('<br>');
+    div.innerHTML = parts.join(' &nbsp;');
     box.appendChild(div);
   }
   box.scrollTop = box.scrollHeight;
@@ -480,12 +611,12 @@ function renderEnd() {
   const winners = state.winners || [];
   const youWin = state.you !== null && winners.includes(state.you);
   $('#end-title').textContent = youWin
-    ? (winners.length === 1 ? '🏆 You win!' : '🤝 You tie for the win!')
-    : `🏆 ${winners.map(playerName).join(' & ')} win${winners.length === 1 ? 's' : ''}!`;
-  const unit = state.scoring === 'points' ? 'points' : 'guests';
+    ? (winners.length === 1 ? '🏆 You win!' : '🤝 Shared win!')
+    : `🏆 ${winners.map(playerName).join(' & ')}`;
+  const unit = state.scoring === 'points' ? '🏅' : '🍸';
   const rows = state.players.map((p, i) => {
     const score = (state.results && state.results[i]) || 0;
-    return `<tr><td><span class="chip p${i}"></span>${playerName(i)}</td><td>${score} ${unit}</td></tr>`;
+    return `<tr><td><span class="chip p${i}"></span>${playerName(i)}</td><td>${unit} ${score}</td></tr>`;
   });
   $('#end-table').innerHTML = rows.join('');
 }

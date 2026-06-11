@@ -76,13 +76,21 @@ class Room:
         return all(s["token"] or s["is_ai"] for s in self.seats)
 
     def claim_seat(self, name):
-        for i, seat in enumerate(self.seats):
-            if not seat["is_ai"] and seat["token"] is None:
-                seat["token"] = secrets.token_urlsafe(9)
-                seat["name"] = (name or "").strip()[:20] or f"Player {i + 1}"
-                self.bump()
-                return i, seat["token"]
-        raise GameError("this game is already full")
+        # an open human seat first; otherwise take over an AI seat, so an
+        # invite link always works even if the host left the default of
+        # one human player
+        free = next((i for i, s in enumerate(self.seats)
+                     if not s["is_ai"] and s["token"] is None), None)
+        if free is None and not self.state.finished:
+            free = next((i for i, s in enumerate(self.seats) if s["is_ai"]), None)
+        if free is None:
+            raise GameError("this game is already full")
+        seat = self.seats[free]
+        seat["is_ai"] = False
+        seat["token"] = secrets.token_urlsafe(9)
+        seat["name"] = (name or "").strip()[:20] or f"Player {free + 1}"
+        self.bump()
+        return free, seat["token"]
 
     def seat_of(self, token):
         for i, seat in enumerate(self.seats):
@@ -260,6 +268,7 @@ class Room:
             "current_player": gs.current_player,
             "finished": gs.finished,
             "log": self.log[-50:],
+            "log_total": len(self.log),
             "hand": [card_json(c) for c in gs.table[seat]["hand"]] if seat is not None else [],
         }
         if gs.finished:
