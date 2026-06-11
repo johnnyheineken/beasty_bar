@@ -50,19 +50,22 @@ class Room:
         if not 2 <= total <= 4:
             raise GameError("Beasty Bar is played by 2-4 players")
         local_names = [n for n in (local_names or []) if True][:total] or [""]
-        if ai < 0 or len(local_names) + ai > total:
-            raise GameError("too many players for this table size")
-        if difficulty not in bots.LEVELS:
+        # `ai` is a list of per-seat difficulties; an int means `difficulty`
+        # for every AI seat (older clients)
+        ai_levels = [difficulty] * int(ai) if isinstance(ai, int) else list(ai)
+        if any(lvl not in bots.LEVELS for lvl in ai_levels):
             raise GameError("difficulty must be easy, medium or hard")
+        if len(local_names) + len(ai_levels) > total:
+            raise GameError("too many players for this table size")
         self.id = secrets.token_urlsafe(4)
         self.deck = deck
-        self.difficulty = difficulty
-        open_seats = total - len(local_names) - ai
+        open_seats = total - len(local_names) - len(ai_levels)
         self.seats = (
             [{"name": None, "token": None, "is_ai": False} for _ in local_names]
             + [{"name": None, "token": None, "is_ai": False} for _ in range(open_seats)]
-            + [{"name": f"AI {AI_NAMES[difficulty]} {i + 1}", "token": None, "is_ai": True}
-               for i in range(ai)]
+            + [{"name": f"AI {AI_NAMES[lvl]} {i + 1}", "token": None, "is_ai": True,
+                "difficulty": lvl}
+               for i, lvl in enumerate(ai_levels)]
         )
         self.runner = GameRunner(init(strategies={i: Max for i in range(total)}, deck=deck))
         self.state.scoring = 'count' if deck == 'classic' else 'points'
@@ -163,7 +166,8 @@ class Room:
         if now - self.last_ai_move < AI_DELAY:
             return
         self.last_ai_move = now
-        card, setup = bots.choose(self.difficulty, gs, p)
+        level = self.seats[p].get("difficulty", "medium")
+        card, setup = bots.choose(level, gs, p)
         bots.apply_setup(card, setup, gs.table[p]["hand"])
         self._apply_turn(card)
         self._skip_finished()
@@ -283,6 +287,7 @@ class Room:
                 "id": i,
                 "name": s["name"] or "(open seat)",
                 "is_ai": s["is_ai"],
+                "difficulty": s.get("difficulty"),
                 "claimed": s["is_ai"] or s["token"] is not None,
                 "mine": i in seats,
                 "hand_count": len(info["hand"]),
@@ -295,7 +300,6 @@ class Room:
             "room": self.id,
             "deck": self.deck,
             "scoring": gs.scoring,
-            "difficulty": self.difficulty,
             "started": self.started,
             "version": self.version,
             "you": seats[0] if seats else None,
@@ -420,7 +424,11 @@ class Handler(BaseHTTPRequestHandler):
                     prune_rooms()
                     total = int(body.get("players", 4))
                     local = body.get("local") or [body.get("name", "")]
-                    ai = int(body["ai"]) if "ai" in body else max(0, total - len(local))
+                    ai = body.get("ai")
+                    if ai is None:
+                        ai = max(0, total - len(local))
+                    elif not isinstance(ai, list):
+                        ai = int(ai)
                     room = Room(
                         total=total,
                         local_names=local,

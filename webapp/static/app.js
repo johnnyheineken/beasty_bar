@@ -85,7 +85,11 @@ let lastLogLen = null;
 let session = null;
 let revealedSeat = null;   // hotseat: whose hand is currently visible
 let prevCounts = { bar: 0, trash: 0 };
-const ui = { deck: 'classic', total: 4, local: 1, ai: 3, difficulty: 'medium', joinLocal: 1 };
+const ui = {
+  deck: 'classic', total: 4, local: 1, ai: 3, joinLocal: 1,
+  aiLevels: ['medium', 'medium', 'medium'],   // per-AI difficulty
+};
+const LEVEL_FACE = { easy: '🐣', medium: '🙂', hard: '🧠' };
 
 function label(name) { return LABEL[name] || name; }
 function cardKey(c) { return `${c.name}-${c.player}`; }
@@ -190,7 +194,7 @@ function refreshHomeForm() {
     b.style.display = n <= maxAi ? '' : 'none';
     b.classList.toggle('on', n === ui.ai);
   }
-  $('#difficulty-row').style.display = ui.ai > 0 ? '' : 'none';
+  renderAiLevels();
   nameInputs('#local-names', ui.local);
   const friends = ui.total - ui.local - ui.ai;
   $('#seats-hint').textContent = friends > 0
@@ -198,11 +202,31 @@ function refreshHomeForm() {
     : '✅ The table is complete — the game starts right away';
 }
 
+function renderAiLevels() {
+  const box = $('#ai-levels');
+  box.innerHTML = '';
+  for (let i = 0; i < ui.ai; i++) {
+    const row = document.createElement('div');
+    row.className = 'seg ai-level-row';
+    const tag = document.createElement('span');
+    tag.className = 'ai-tag';
+    tag.textContent = `🤖 ${i + 1}`;
+    row.appendChild(tag);
+    for (const lvl of ['easy', 'medium', 'hard']) {
+      const b = document.createElement('button');
+      b.innerHTML = `${LEVEL_FACE[lvl]}<small>${lvl === 'medium' ? 'normal' : lvl}</small>`;
+      b.classList.toggle('on', ui.aiLevels[i] === lvl);
+      b.onclick = () => { ui.aiLevels[i] = lvl; renderAiLevels(); };
+      row.appendChild(b);
+    }
+    box.appendChild(row);
+  }
+}
+
 segInit('#deck-select', 'deck', 'deck');
 segInit('#total-select', 'total');
 segInit('#local-select', 'local');
 segInit('#ai-select', 'ai');
-segInit('#difficulty-select', 'difficulty', 'd');
 $('#join-local-select').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -222,7 +246,7 @@ async function guarded(btn, fn, errBox) {
 $('#create-btn').onclick = (e) => guarded(e.target, async () => {
   const local = names('#local-names');
   const res = await api('/api/room', {
-    players: ui.total, local, ai: ui.ai, difficulty: ui.difficulty, deck: ui.deck,
+    players: ui.total, local, ai: ui.aiLevels.slice(0, ui.ai), deck: ui.deck,
   });
   localStorage.setItem('beasty_name', local[0] || '');
   saveSession(res);

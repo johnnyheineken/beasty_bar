@@ -77,9 +77,18 @@ def test_partial_claim_when_not_enough_seats():
     assert seats == [1]
 
 
+def test_per_seat_ai_difficulty():
+    room = server.Room(total=4, local_names=["Host"], ai=["easy", "hard"], deck='classic')
+    assert room.seats[2]["difficulty"] == "easy" and "🐣" in room.seats[2]["name"]
+    assert room.seats[3]["difficulty"] == "hard" and "🧠" in room.seats[3]["name"]
+    view = room.serialize(room.host_token)
+    assert [p["difficulty"] for p in view["players"]] == [None, None, "easy", "hard"]
+
+
 @pytest.mark.parametrize("difficulty", ["easy", "medium", "hard"])
 def test_full_ai_game_all_difficulties(difficulty):
     room = make_room(total=3, local=["Host"], ai=2, deck='mixed', difficulty=difficulty)
+    assert all(s["difficulty"] == difficulty for s in room.seats if s["is_ai"])
     gs = room.state
     for _ in range(500):
         if gs.finished:

@@ -106,6 +106,15 @@ input {
 }
 .seg button.on small { color: #4a3208; }
 
+.ai-level-row { margin-top: 6px; align-items: center; }
+.ai-level-row .ai-tag {
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 46px;
+  text-align: left;
+}
+.ai-level-row button { min-height: 40px; font-size: 17px; }
+
 .cta {
   background: linear-gradient(180deg, var(--accent), var(--accent-2));
   color: #1a1423;
