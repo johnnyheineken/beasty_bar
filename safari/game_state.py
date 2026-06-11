@@ -38,6 +38,8 @@ class GameState:
     # 'count' = base game (most guests, ties broken by lower total value);
     # 'points' = New Beasts in Town / mixed (sum of card points, ties stand)
     scoring: str = 'count'
+    # step timeline of the most recent turn (transient, for animations)
+    last_events: List = field(default_factory=list)
 
     def set_queue_evaluation_result(self, to_winners, to_losers, new_queue):
         self.last_queue_evaluation = QueueEvaluationResult(
@@ -60,6 +62,7 @@ class GameState:
         data['queue'] = [serialize_card(card) for card in self.queue]
         data['old_queue'] = [serialize_card(card) for card in self.old_queue]
         data['last_queue_evaluation'] = None  # transient, holds raw Card objects
+        data['last_events'] = []              # transient, holds raw Card objects
 
         serialized_table = {}
         for player, info in data['table'].items():
@@ -88,6 +91,7 @@ class GameState:
         data['queue'] = Queue([deserialize_card(card) for card in data['queue']])
         data['old_queue'] = Queue([deserialize_card(card) for card in data['old_queue']])
         data['last_queue_evaluation'] = None
+        data['last_events'] = []
         # JSON turns int dict keys into strings
         data['results'] = {int(p): v for p, v in (data.get('results') or {}).items()}
 
@@ -110,10 +114,11 @@ class GameState:
 
     def update_queue(self, card):
         self.old_queue = self.queue.copy()
+        self.last_events = []
         if isinstance(card, Vulture):
             self._play_vulture(card)
             return
-        new_queue, dropped = self.queue.resolve(card)
+        new_queue, dropped = self.queue.resolve(card, events=self.last_events)
         self.queue = new_queue
         self.cards_in_thrash.extend(dropped)
 
@@ -126,7 +131,7 @@ class GameState:
         if trash and isinstance(trash[-1], Vulture):
             other = trash.pop()
             self.cards_in_bar.extend([other, vulture])
-            new_queue, dropped = self.queue.run_recurring()
+            new_queue, dropped = self.queue.run_recurring(events=self.last_events)
             self.queue = new_queue
             trash.extend(dropped)
             return
@@ -134,11 +139,11 @@ class GameState:
             revived = trash.pop()
             for attr, value in (vulture.revive_params or {}).items():
                 setattr(revived, attr, value)
-            new_queue, dropped = self.queue.resolve(revived)
+            new_queue, dropped = self.queue.resolve(revived, events=self.last_events)
             self.queue = new_queue
             trash.extend(dropped)
         else:
-            new_queue, dropped = self.queue.run_recurring()
+            new_queue, dropped = self.queue.run_recurring(events=self.last_events)
             self.queue = new_queue
             trash.extend(dropped)
         trash.append(vulture)

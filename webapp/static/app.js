@@ -324,7 +324,13 @@ $('#games-btn').onclick = async () => {
 };
 $('#games-close').onclick = () => $('#games-overlay').classList.add('hidden');
 
-$('#help-btn').onclick = () => $('#help-overlay').classList.remove('hidden');
+$('#help-btn').onclick = () => {
+  $('#anim-toggle').checked = localStorage.getItem('beasty_anim') !== '0';
+  $('#help-overlay').classList.remove('hidden');
+};
+$('#anim-toggle').onchange = (e) => {
+  localStorage.setItem('beasty_anim', e.target.checked ? '1' : '0');
+};
 $('#help-close').onclick = () => {
   localStorage.setItem('beasty_seen', '1');
   $('#help-overlay').classList.add('hidden');
@@ -424,7 +430,8 @@ function renderPassOverlay() {
   const overlay = $('#pass-overlay');
   const seat = activeLocalSeat();
   const needsPass = isHotseat() && seat !== null && revealedSeat !== seat
-    && $('#help-overlay').classList.contains('hidden') && !state.finished;
+    && $('#help-overlay').classList.contains('hidden') && !state.finished
+    && !playing;   // let the previous turn finish acting first
   if (!needsPass) { overlay.classList.add('hidden'); return; }
   overlay.classList.remove('hidden');
   $('#pass-emoji').textContent = '📱➡️';
@@ -462,165 +469,206 @@ function handCardEl(card) {
   return el;
 }
 
-/* ---------- per-card drama ----------
-   Every action gets a physical moment: hunters lunge at their prey,
-   the hippo shakes the room, the skunk gasses the line. */
+/* ---------- turn playback ----------
+   The cards act the turn out themselves, one step at a time, the way
+   you would perform it at the table: the played card walks to the end
+   of the line, gives a little wind-up, then does its thing — victims
+   are displaced and their cards fly off; a hunter that runs into a
+   wall (zebra, lion...) boinks off it. No words: the log has the words.
+*/
 
-function center(rect) { return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }; }
+let playing = false;
+const animsOn = () => localStorage.getItem('beasty_anim') !== '0';
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-function impactAt(emoji, rect, delay = 0, size = 30) {
-  if (!rect) return;
-  const el = document.createElement('div');
-  el.className = 'impact';
-  el.textContent = emoji;
-  el.style.fontSize = size + 'px';
-  const c = center(rect);
-  el.style.left = (c.x - size / 2) + 'px';
-  el.style.top = (c.y - size / 2) + 'px';
-  el.style.animationDelay = delay + 'ms';
-  $('#fly-layer').appendChild(el);
-  setTimeout(() => el.remove(), 1200 + delay);
-}
+function sameCard(a, b) { return a && b && a.name === b.name && a.player === b.player; }
 
-function ringPulse(rect) {
-  if (!rect) return;
-  const el = document.createElement('div');
-  el.className = 'ring';
-  const c = center(rect);
-  el.style.left = (c.x - 12) + 'px';
-  el.style.top = (c.y - 12) + 'px';
-  $('#fly-layer').appendChild(el);
-  setTimeout(() => el.remove(), 900);
-}
-
-function shakeTable() {
-  const table = $('#table');
-  table.classList.remove('shake');
-  void table.offsetWidth;
-  table.classList.add('shake');
-  setTimeout(() => table.classList.remove('shake'), 650);
-}
-
-function actorSweep(emoji, fromRect, toRect, cls = '') {
-  if (!fromRect || !toRect) return;
-  const el = document.createElement('div');
-  el.className = 'actor ' + cls;
-  el.textContent = emoji;
-  const a = center(fromRect), z = center(toRect);
-  el.style.left = (a.x - 22) + 'px';
-  el.style.top = (a.y - 22) + 'px';
-  $('#fly-layer').appendChild(el);
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    el.style.left = (z.x - 22) + 'px';
-    el.style.top = (z.y - 22) + 'px';
-  }));
-  setTimeout(() => el.remove(), 1000);
-}
-
-function gasCloud(rect, delay = 0) {
-  if (!rect) return;
-  const el = document.createElement('div');
-  el.className = 'gas';
-  const c = center(rect);
-  el.style.left = (c.x - 45) + 'px';
-  el.style.top = (c.y - 45) + 'px';
-  el.style.animationDelay = delay + 'ms';
-  $('#fly-layer').appendChild(el);
-  setTimeout(() => el.remove(), 1500 + delay);
-}
-
-function dramatize(entry, oldRects) {
-  if (!entry || !entry.played) return;
-  const kind = entry.as || entry.played.name;
+function renderRows(cards) {
   const box = $('#queue');
-  const playedKey = cardKey(entry.played);
-  const meEl = box.querySelector(`[data-key="${CSS.escape(playedKey)}"]`);
-  const meRect = meEl && meEl.getBoundingClientRect();
-  const table = $('#table').getBoundingClientRect();
-  const handRect = $('#hand-dock').getBoundingClientRect();
-  const selfDied = entry.to_trash.some(c => cardKey(c) === playedKey);
-  const victims = entry.to_trash.filter(c => cardKey(c) !== playedKey);
-  // victims the player saw in the line have exact positions; ones that
-  // came and went between two polls still pop, over the queue center
-  const fallback = { left: table.left + table.width * 0.3, top: table.top + table.height * 0.4,
-                     width: table.width * 0.4, height: 40 };
-  const victimRects = victims.map(c => oldRects[cardKey(c)] || fallback);
-  const farVictim = victimRects[victimRects.length - 1];
+  box.innerHTML = '';
+  for (const card of cards) box.appendChild(qcardEl(card));
+  for (let i = cards.length; i < 5; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'qslot';
+    box.appendChild(slot);
+  }
+}
 
-  // every casualty pops
-  victimRects.forEach((r, i) => impactAt('💥', r, i * 110));
-  // a card that died the moment it was played (2nd lion, reflected
-  // bruiser, burned bat) visibly bounces off toward the trash
-  if (selfDied) {
-    actorSweep(EMOJI[entry.played.name], handRect, $('#trash-pile').getBoundingClientRect());
+function captureRects() {
+  const map = {};
+  for (const el of $('#queue').querySelectorAll('.qcard')) {
+    map[el.dataset.key] = el.getBoundingClientRect();
+  }
+  return map;
+}
+
+function rowEl(key) {
+  return $('#queue').querySelector(`[data-key="${CSS.escape(key)}"]`);
+}
+
+function flyRow(card, fromRect, pileSel, delay) {
+  const ghost = qcardEl(card);
+  ghost.classList.add('fly-row');
+  ghost.style.left = fromRect.left + 'px';
+  ghost.style.top = fromRect.top + 'px';
+  ghost.style.width = fromRect.width + 'px';
+  ghost.style.height = fromRect.height + 'px';
+  $('#fly-layer').appendChild(ghost);
+  const pile = $(pileSel).getBoundingClientRect();
+  setTimeout(() => {
+    ghost.style.left = (pile.left + pile.width / 2 - fromRect.width * 0.15) + 'px';
+    ghost.style.top = pile.top + 'px';
+    ghost.style.transform = 'scale(.22) rotate(6deg)';
+    ghost.style.opacity = '0';
+  }, 30 + delay);
+  setTimeout(() => ghost.remove(), 950 + delay);
+}
+
+/* FLIP the queue from what is shown now to `cards`; departing cards fly
+   to a pile, a brand-new card slides in from `enterFrom`. */
+function flipTo(cards, opts = {}) {
+  const oldRects = captureRects();
+  const dur = opts.dur || 450;
+  const stagger = opts.stagger ?? 140;
+  (opts.leaving || []).forEach(({ card, pile }, i) => {
+    const from = oldRects[cardKey(card)];
+    if (from) flyRow(card, from, pile, i * stagger);
+  });
+  renderRows(cards);
+  for (const el of $('#queue').querySelectorAll('.qcard')) {
+    const now = el.getBoundingClientRect();
+    const from = oldRects[el.dataset.key] || opts.enterFrom;
+    if (!from) { el.classList.add('entering'); continue; }
+    const dx = from.left - now.left, dy = from.top - now.top;
+    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) continue;
+    const scale = oldRects[el.dataset.key] ? '' : ' scale(.4)';
+    el.style.transition = 'none';
+    el.style.transform = `translate(${dx}px, ${dy}px)${scale}`;
+    void el.offsetWidth;
+    el.style.transition = `transform ${dur}ms cubic-bezier(.25,.9,.3,1)`;
+    el.style.transform = '';
+    el.addEventListener('transitionend', () => { el.style.transition = ''; }, { once: true });
+  }
+  const tail = (opts.leaving || []).length ? (opts.leaving.length - 1) * stagger + 220 : 0;
+  return sleep(dur + tail);
+}
+
+function originRect(player) {
+  if (state && mySeats().includes(player)) return $('#hand-dock').getBoundingClientRect();
+  const chip = $(`#players-strip .pchip[data-id="${player}"]`);
+  return chip ? chip.getBoundingClientRect() : $('#topbar').getBoundingClientRect();
+}
+
+function maskAs(actorKey, asName) {
+  const el = rowEl(actorKey);
+  if (!el || !asName) return;
+  const emoji = el.querySelector('.emoji');
+  if (emoji) emoji.textContent = EMOJI[asName] || emoji.textContent;
+  el.classList.add('morphing');
+  setTimeout(() => el.classList.remove('morphing'), 500);
+}
+
+function findBlocker(kind, step) {
+  const idx = step.after.findIndex(c => sameCard(c, step.actor));
+  if (idx <= 0) return null;
+  const ahead = step.after[idx - 1];
+  if (kind === 'Croc' && ['Zebra', 'Lion', 'Hippo', 'Croc'].includes(ahead.name)) return ahead;
+  if (kind === 'Hippo' && ['Zebra', 'Lion', 'Hippo'].includes(ahead.name)) return ahead;
+  if (kind === 'Tiger' && !step.out.length && idx >= 2
+      && step.after[idx - 2].animal >= step.actor.animal) return step.after[idx - 2];
+  return null;
+}
+
+async function playStep(entry, step, speed) {
+  const actorKey = cardKey(step.actor);
+  const joining = !step.before.some(c => sameCard(c, step.actor));
+  const isPlayedCard = sameCard(step.actor, entry.played);
+  const kind = step.as || (isPlayedCard ? (entry.as || entry.played.name) : step.actor.name);
+  const moved = step.before.length !== step.after.length ||
+    step.before.some((c, i) => !sameCard(c, step.after[i]));
+
+  // 1) ENTER — the new card first gets in line (or rises from the trash
+  //    when the vulture brought it back)
+  if (joining) {
+    const fromTrash = entry.played.name === 'Vulture' && !isPlayedCard;
+    const enterFrom = fromTrash
+      ? $('#trash-pile').getBoundingClientRect()
+      : originRect(entry.player);
+    await flipTo(step.before.concat([step.actor]), { enterFrom, dur: 420 * speed });
+    maskAs(actorKey, step.as);
+    await sleep(160 * speed);
   }
 
-  switch (kind) {
-    case 'Croc':
-      if (victimRects.length) { actorSweep('🐊', meRect || handRect, farVictim, 'chomp'); shakeTable(); }
-      break;
-    case 'Tiger':
-    case 'Cheetah':
-      if (victimRects.length) actorSweep(EMOJI[kind], meRect || handRect, victimRects[0], 'chomp');
-      break;
-    case 'Rhino':
-      if (selfDied) { impactAt('🦔', meRect || table, 150, 38); impactAt('💢', handRect, 250); }
-      else if (victimRects.length) { actorSweep('🦏', handRect, victimRects[0], 'charge'); shakeTable(); }
-      break;
-    case 'Hippo':
-      shakeTable();
-      impactAt('💨', meRect, 100);
-      break;
-    case 'Lion':
-      if (selfDied) { impactAt('👑', handRect, 0, 36); break; }
-      ringPulse(meRect);
-      impactAt('👑', meRect, 120, 34);
-      victimRects.forEach((r, i) => impactAt('💨', r, i * 90));
-      break;
-    case 'Monkey':
-      victimRects.forEach((r, i) => impactAt('🍌', r, i * 100, 26));
-      if (victims.length) impactAt('🐒', meRect, 200, 34);
-      break;
-    case 'Skunk':
-      victimRects.forEach((r, i) => { gasCloud(r, i * 120); impactAt('🤢', r, 250 + i * 120, 26); });
-      break;
-    case 'Parrot':
-      if (victimRects.length) actorSweep('🦜', { left: table.left, top: table.top, width: 40, height: 40 }, victimRects[0], 'chomp');
-      break;
-    case 'Bat':
-      if (victimRects.length) actorSweep('🦇', { left: table.right - 60, top: table.top, width: 40, height: 40 }, victimRects[0], 'chomp');
-      if (selfDied) impactAt('☀️', oldRects[playedKey] || meRect || table, 400, 34);
-      break;
-    case 'Kangaroo':
-      if (meEl) { setTimeout(() => meEl.classList.add('hop'), 500); setTimeout(() => meEl.classList.remove('hop'), 1300); }
-      break;
-    case 'Zebra':
-    case 'Porcupine':
-      impactAt('🛡️', meRect, 150, 30);
-      break;
-    case 'Peacock':
-      impactAt('✨', meRect, 100, 28);
-      impactAt('✨', meRect, 260, 22);
-      break;
-    case 'Llama':
-      impactAt('💦', meRect, 150, 26);
-      break;
-    case 'Ostrich':
-      impactAt('💨', meRect, 100, 26);
-      break;
-    case 'Bear':
-      impactAt('🐾', meRect, 120, 32);
-      break;
-    case 'Vulture': {
-      // the revived animal rises from the trash back into the line
-      const revived = [...box.querySelectorAll('.qcard')]
-        .find(el => !oldRects[el.dataset.key]);
-      if (revived) {
-        actorSweep('♻️', $('#trash-pile').getBoundingClientRect(), revived.getBoundingClientRect());
-      }
-      break;
+  // 2) WIND-UP — a happy little hop before acting
+  const el = rowEl(actorKey);
+  if (el && (step.out.length || moved)) {
+    el.classList.add('windup');
+    await sleep(430 * speed);
+    el.classList.remove('windup');
+  }
+
+  // 3) ACT — sweep to the result; the displaced cards fly away
+  await flipTo(step.after, {
+    dur: 470 * speed,
+    stagger: 150 * speed,
+    leaving: step.out.map(c => ({ card: c, pile: '#trash-pile' })),
+  });
+  if (step.as) maskAs(actorKey, null);
+
+  // 4) BOINK — a hunter stopped by a wall bounces off it
+  const blocker = findBlocker(kind, step);
+  if (blocker) {
+    const a = rowEl(actorKey);
+    const b = rowEl(cardKey(blocker));
+    if (a) a.classList.add('boink');
+    if (b) setTimeout(() => b.classList.add('holdfast'), 170 * speed);
+    await sleep(540 * speed);
+    if (a) a.classList.remove('boink');
+    if (b) b.classList.remove('holdfast');
+  }
+  await sleep(150 * speed);
+}
+
+async function playEntry(entry, speed) {
+  const steps = entry.steps || [];
+  const lastAfter = steps.length ? steps[steps.length - 1].after : null;
+
+  if ((entry.played.name === 'Seal' || entry.as === 'Seal') && lastAfter) {
+    renderRows(lastAfter);     // the table itself performs the reversal
+    spinTable();
+    await sleep(1250);
+  } else {
+    for (const step of steps) await playStep(entry, step, speed);
+  }
+
+  if (entry.gate_opened && lastAfter && lastAfter.length >= 5) {
+    await sleep(350 * speed);
+    celebrateGate(entry);
+    await sleep(550);
+    await flipTo(lastAfter.slice(2, 4), {
+      dur: 620,
+      stagger: 170,
+      leaving: [
+        { card: lastAfter[0], pile: '#bar-pile' },
+        { card: lastAfter[1], pile: '#bar-pile' },
+        { card: lastAfter[4], pile: '#trash-pile' },
+      ],
+    });
+  }
+  await sleep(180 * speed);
+}
+
+async function startPlayback(entries) {
+  playing = true;
+  try {
+    const speed = entries.length > 1 ? 0.55 : 1;
+    for (const entry of entries) {
+      if (!entry || !entry.played) continue;
+      await playEntry(entry, speed);
     }
-  }
+  } catch (e) { /* the show must never block the game */ }
+  playing = false;
+  renderGame();
 }
 
 /* ---------- seal: the table turns around ---------- */
@@ -739,6 +787,7 @@ function bumpPile(sel) {
 }
 
 function renderQueue() {
+  if (playing) return;        // the playback owns the queue while acting
   const box = $('#queue');
   const strip = $('#preview-strip');
 
@@ -776,18 +825,28 @@ function renderQueue() {
   }
   strip.classList.add('hidden');
 
-  // FLIP step 1: remember where each card was
-  const oldRects = {};
-  for (const el of box.querySelectorAll('.qcard')) {
-    oldRects[el.dataset.key] = el.getBoundingClientRect();
-  }
-
-  box.innerHTML = '';
+  const oldRects = captureRects();
   const total = state.log_total ?? state.log.length;
   const newCount = lastLogLen === null ? 0 : Math.max(0, total - lastLogLen);
   const freshEntries = newCount ? state.log.slice(-Math.min(newCount, state.log.length)) : [];
-  const lastEntry = state.log[state.log.length - 1];
+  lastLogLen = total;
 
+  // fresh turns with a step timeline: let the cards act them out
+  if (animsOn() && freshEntries.some(e => e && e.steps && e.steps.length)) {
+    for (const entry of freshEntries) {
+      if (entry && entry.gate_opened) {
+        const gate = $('#gate-in');
+        gate.classList.remove('open');
+        void gate.offsetWidth;
+        gate.classList.add('open');
+      }
+    }
+    startPlayback(freshEntries);
+    return;
+  }
+
+  // plain path (animations off, reconnects, no fresh turns)
+  box.innerHTML = '';
   state.queue.forEach((card, i) => {
     const el = qcardEl(card);
     decorateQueueCard(el, card, i);
@@ -798,73 +857,26 @@ function renderQueue() {
     slot.className = 'qslot';
     box.appendChild(slot);
   }
-
-  // a seal swaps the gate and the exit: spin the whole table instead of
-  // sliding cards past each other — like turning the real table around
-  const sealEntry = freshEntries.find(e => e.played.name === 'Seal' || e.as === 'Seal');
-  // sorters reorder the whole line: cascade the slides one after another
-  const sortWave = freshEntries.some(e => ['Snake', 'Dog'].includes(e.as || e.played.name));
-  if (sealEntry) {
-    spinTable();
-  } else {
-  // FLIP step 2: slide moved cards; let the just-played card arrive
-  // visibly from its owner's chip
   requestAnimationFrame(() => {
-    let row = 0;
     for (const el of box.querySelectorAll('.qcard')) {
-      const delay = sortWave ? `${row * 90}ms` : '';
-      row += 1;
       const old = oldRects[el.dataset.key];
-      if (old) {
-        const now = el.getBoundingClientRect();
-        const dx = old.left - now.left, dy = old.top - now.top;
-        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-          el.style.transform = `translate(${dx}px, ${dy}px)`;
-          el.style.transitionDelay = delay;
-          void el.offsetWidth;
-          el.classList.add('moving');
-          el.style.transform = '';
-          el.addEventListener('transitionend', () => {
-            el.classList.remove('moving');
-            el.style.transitionDelay = '';
-          }, { once: true });
-        }
-      } else if (freshEntries.length && lastEntry &&
-                 el.dataset.key === cardKey(lastEntry.played)) {
-        const chip = $(`#players-strip .pchip[data-id="${lastEntry.player}"]`);
-        if (chip) {
-          const from = chip.getBoundingClientRect();
-          const now = el.getBoundingClientRect();
-          el.style.transform =
-            `translate(${from.left - now.left}px, ${from.top - now.top}px) scale(.3)`;
-          void el.offsetWidth;
-          el.classList.add('moving');
-          el.style.transform = '';
-          el.addEventListener('transitionend', () => el.classList.remove('moving'), { once: true });
-        } else {
-          el.classList.add('entering');
-        }
+      if (!old) continue;
+      const now = el.getBoundingClientRect();
+      const dx = old.left - now.left, dy = old.top - now.top;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+        void el.offsetWidth;
+        el.classList.add('moving');
+        el.style.transform = '';
+        el.addEventListener('transitionend', () => el.classList.remove('moving'), { once: true });
       }
     }
   });
-  }
-
-  // fly outgoing animals to the piles; stage each card's drama;
-  // celebrate when the gate opens
   for (const entry of freshEntries) {
     if (!entry || !entry.played) continue;
     flyCards(entry.to_bar, oldRects, '#bar-pile');
     flyCards(entry.to_trash, oldRects, '#trash-pile');
-    try { dramatize(entry, oldRects); } catch (e) { /* drama must never break play */ }
-    if (entry.gate_opened) {
-      const gate = $('#gate-in');
-      gate.classList.remove('open');
-      void gate.offsetWidth;
-      gate.classList.add('open');
-      celebrateGate(entry);
-    }
   }
-  lastLogLen = total;
 }
 
 function flyCards(cards, oldRects, pileSel) {

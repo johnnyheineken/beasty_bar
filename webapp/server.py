@@ -199,6 +199,14 @@ class Room:
             "to_bar": [card_json(c) for c in gs.cards_in_bar[bar_before:]],
             "to_trash": [card_json(c) for c in gs.cards_in_thrash[trash_before:]],
             "gate_opened": gs.last_queue_evaluation is not None,
+            # the turn as a step timeline, so the client can act it out
+            "steps": [{
+                "actor": card_json(s["actor"]),
+                "as": getattr(s["actor"], "taken_form_of", None),
+                "before": [card_json(c) for c in s["before"]],
+                "after": [card_json(c) for c in s["after"]],
+                "out": [card_json(c) for c in s["out"]],
+            } for s in gs.last_events],
         }
         self.log.append(entry)
         self.bump()
