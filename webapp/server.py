@@ -401,4 +401,6 @@ def main(port=8000):
 
 
 if __name__ == "__main__":
-    main(int(sys.argv[1]) if len(sys.argv) > 1 else 8000)
+    import os
+    default_port = int(os.environ.get("PORT", 8000))  # Cloud Run sets $PORT
+    main(int(sys.argv[1]) if len(sys.argv) > 1 else default_port)
