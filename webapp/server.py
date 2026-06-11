@@ -29,7 +29,11 @@ from webapp import db  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 AI_DELAY = 0.8          # seconds between AI moves
-ROOM_TTL = 24 * 3600    # drop rooms idle for a day
+# long-running (correspondence-style) games are fine: an unfinished room
+# survives two weeks since the last move, a finished one two days (the
+# result is archived in the games table forever either way)
+UNFINISHED_TTL = 14 * 24 * 3600
+FINISHED_TTL = 2 * 24 * 3600
 
 
 class GameError(Exception):
@@ -128,7 +132,8 @@ class Room:
             self.bump()
         if self.version != self.saved_version:
             self.saved_version = self.version
-            db.save_room(self.id, self.to_doc(), self.last_touch)
+            db.save_room(self.id, self.to_doc(), self.last_touch,
+                         finished=self.state.finished)
 
     # ---- seats ----
 
@@ -396,9 +401,13 @@ def get_room(room_id):
 
 def prune_rooms():
     now = time.time()
-    for rid in [r for r, room in ROOMS.items() if now - room.last_touch > ROOM_TTL]:
+    def expired(finished, last_touch):
+        ttl = FINISHED_TTL if finished else UNFINISHED_TTL
+        return now - last_touch > ttl
+    for rid in [r for r, room in ROOMS.items()
+                if expired(room.state.finished, room.last_touch)]:
         del ROOMS[rid]
-    db.delete_rooms_older_than(now - ROOM_TTL)
+    db.prune_rooms(now - UNFINISHED_TTL, now - FINISHED_TTL)
 
 
 CONTENT_TYPES = {

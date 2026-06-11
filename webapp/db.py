@@ -64,6 +64,9 @@ def init(path=None):
         CREATE INDEX IF NOT EXISTS idx_games_time ON games(finished_at);
         CREATE INDEX IF NOT EXISTS idx_gp_name ON game_players(name);
     """)
+    cols = [row[1] for row in _conn.execute("PRAGMA table_info(rooms)")]
+    if "finished" not in cols:  # migration for databases from before TTLs split
+        _conn.execute("ALTER TABLE rooms ADD COLUMN finished INTEGER DEFAULT 0")
     _conn.commit()
 
 
@@ -75,12 +78,13 @@ def _db():
 
 # ---------- rooms (persistent sessions) ----------
 
-def save_room(room_id, doc, updated):
+def save_room(room_id, doc, updated, finished=False):
     with _lock:
         _db().execute(
-            "INSERT INTO rooms(id, doc, updated) VALUES(?,?,?) "
-            "ON CONFLICT(id) DO UPDATE SET doc=excluded.doc, updated=excluded.updated",
-            (room_id, json.dumps(doc), updated))
+            "INSERT INTO rooms(id, doc, updated, finished) VALUES(?,?,?,?) "
+            "ON CONFLICT(id) DO UPDATE SET doc=excluded.doc, "
+            "updated=excluded.updated, finished=excluded.finished",
+            (room_id, json.dumps(doc), updated, int(finished)))
         _db().commit()
     _backup["dirty"] = True
     maybe_backup()
@@ -92,9 +96,12 @@ def load_room(room_id):
     return json.loads(row[0]) if row else None
 
 
-def delete_rooms_older_than(cutoff):
+def prune_rooms(unfinished_cutoff, finished_cutoff):
     with _lock:
-        _db().execute("DELETE FROM rooms WHERE updated < ?", (cutoff,))
+        _db().execute(
+            "DELETE FROM rooms WHERE (finished = 0 AND updated < ?) "
+            "OR (finished = 1 AND updated < ?)",
+            (unfinished_cutoff, finished_cutoff))
         _db().commit()
 
 

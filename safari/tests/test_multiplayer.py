@@ -183,3 +183,18 @@ def test_finished_game_recorded_and_leaderboard(tmp_path):
     assert {r["name"] for r in board} == {"Winner", "Loser"}
     assert board[0]["wins"] >= board[-1]["wins"]
     assert server.db.leaderboard("2001-01") == []
+
+
+def test_prune_keeps_long_running_games(tmp_path):
+    _fresh_db(tmp_path)
+    now = _time.time()
+    day = 24 * 3600
+    server.db.save_room("paused-3d", {"x": 1}, now - 3 * day, finished=False)
+    server.db.save_room("dead-20d", {"x": 1}, now - 20 * day, finished=False)
+    server.db.save_room("done-1d", {"x": 1}, now - 1 * day, finished=True)
+    server.db.save_room("done-5d", {"x": 1}, now - 5 * day, finished=True)
+    server.db.prune_rooms(now - server.UNFINISHED_TTL, now - server.FINISHED_TTL)
+    assert server.db.load_room("paused-3d")    # mid-game pause survives weeks
+    assert server.db.load_room("done-1d")
+    assert server.db.load_room("dead-20d") is None
+    assert server.db.load_room("done-5d") is None
