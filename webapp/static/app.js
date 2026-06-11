@@ -361,20 +361,46 @@ $('#share-btn').onclick = () => {
 
 /* ---------- polling ---------- */
 
+/* Polling is the main running cost of the system, so it adapts:
+   fast only while waiting for someone else's move, slow on our own
+   turn and in the lobby, paused while the app is in the background,
+   and stopped entirely once the game is over. */
+function pollDelay() {
+  if (!state) return 1500;
+  if (state.finished) return null;                 // game over: stop
+  if (!state.started) return 3000;                 // lobby
+  if (activeLocalSeat() !== null) return 8000;     // our move: nothing changes without us
+  return POLL_MS;                                  // someone else is thinking
+}
+
 function startPolling() {
   stopPolling();
   const poll = async () => {
+    pollTimer = null;
     try {
-      state = await api(`/api/state?room=${session.room}&token=${session.token}`);
-      onState();
+      const v = state && state.started ? `&v=${state.version}` : '';
+      const data = await api(`/api/state?room=${session.room}&token=${session.token}${v}`);
+      if (!data.unchanged) {
+        state = data;
+        onState();
+      }
     } catch (e) {
       if (e.status === 404) { $('#again-btn').click(); alert(e.message); return; }
     }
-    pollTimer = setTimeout(poll, POLL_MS);
+    const delay = pollDelay();
+    if (delay !== null && !document.hidden) pollTimer = setTimeout(poll, delay);
   };
   poll();
 }
 function stopPolling() { clearTimeout(pollTimer); pollTimer = null; }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    stopPolling();
+  } else if (session && !(state && state.finished)) {
+    startPolling();
+  }
+});
 
 function onState() {
   if (!state.started) { renderLobby(); return; }
@@ -856,6 +882,7 @@ async function commitPreview() {
   try {
     state = await api('/api/play', { room: session.room, token: session.token, card, params });
     onState();
+    startPolling();   // switch to the fast schedule while others respond
   } catch (e) {
     showStatus(`⚠️ ${e.message}`);
   }

@@ -22,11 +22,13 @@ DB_PATH = os.environ.get("BEASTY_DB",
                          str(Path(__file__).resolve().parent / "beasty.db"))
 GCS_BUCKET = os.environ.get("GCS_BUCKET")
 GCS_OBJECT = os.environ.get("GCS_OBJECT", "beasty.db")
-BACKUP_DELAY = 4.0  # seconds of quiet before uploading
+# Cloud Run throttles CPU outside of requests, so backups run inline
+# during request handling, at most once per interval (the file is tiny)
+BACKUP_INTERVAL = 30.0
 
 _conn = None
 _lock = threading.Lock()
-_backup_timer = None
+_backup = {"dirty": False, "last": 0.0}
 _token_cache = {"value": None, "expires": 0.0}
 
 
@@ -80,7 +82,8 @@ def save_room(room_id, doc, updated):
             "ON CONFLICT(id) DO UPDATE SET doc=excluded.doc, updated=excluded.updated",
             (room_id, json.dumps(doc), updated))
         _db().commit()
-    backup_soon()
+    _backup["dirty"] = True
+    maybe_backup()
 
 
 def load_room(room_id):
@@ -110,7 +113,8 @@ def record_game(room_id, deck, scoring, players):
             [(game_id, p["seat"], p["name"], int(p["is_ai"]), p.get("difficulty"),
               p["score"], int(p["won"])) for p in players])
         _db().commit()
-    backup_soon()
+    _backup["dirty"] = True
+    maybe_backup(force=True)  # finished games are precious — upload now
     return game_id
 
 
@@ -195,16 +199,16 @@ def _restore_from_gcs():
         print(f"no GCS restore ({exc})")
 
 
-def backup_soon():
-    """Debounced upload of the database to GCS."""
-    global _backup_timer
-    if not GCS_BUCKET:
+def maybe_backup(force=False):
+    """Upload the database to GCS, at most once per BACKUP_INTERVAL."""
+    if not GCS_BUCKET or not _backup["dirty"]:
         return
-    if _backup_timer:
-        _backup_timer.cancel()
-    _backup_timer = threading.Timer(BACKUP_DELAY, _backup_now)
-    _backup_timer.daemon = True
-    _backup_timer.start()
+    now = time.time()
+    if not force and now - _backup["last"] < BACKUP_INTERVAL:
+        return
+    _backup["last"] = now
+    _backup["dirty"] = False
+    _backup_now()
 
 
 def _backup_now():

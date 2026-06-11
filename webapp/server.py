@@ -437,6 +437,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type",
                          CONTENT_TYPES.get(resolved.suffix, "application/octet-stream"))
+        self.send_header("Cache-Control", "public, max-age=300")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -468,7 +469,12 @@ class Handler(BaseHTTPRequestHandler):
                     room = get_room(q.get("room", ""))
                     room.tick()
                     room.persist()
-                    self._send_json(room.serialize(q.get("token")))
+                    # nothing changed since the client's version: answer
+                    # with a tiny payload (saves CPU time and egress)
+                    if q.get("v") and q["v"] == str(room.version):
+                        self._send_json({"unchanged": True, "version": room.version})
+                    else:
+                        self._send_json(room.serialize(q.get("token")))
             except GameError as exc:
                 self._send_json({"error": str(exc)}, status=404)
             except Exception as exc:  # never kill the connection on a bug
