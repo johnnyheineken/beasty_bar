@@ -3,15 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#1a1423">
+  <meta name="theme-color" content="#160f20">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Beasty Bar">
   <title>Beasty Bar</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <!-- ============ HOME ============ -->
-  <section id="screen-home" class="screen">
+  <section id="screen-home" class="screen menu">
     <h1 class="neon">🍹 Beasty Bar</h1>
     <div class="panel">
       <label for="player-name">😎 Your name</label>
@@ -46,7 +48,7 @@
   </section>
 
   <!-- ============ JOIN ============ -->
-  <section id="screen-join" class="screen hidden">
+  <section id="screen-join" class="screen menu hidden">
     <h1 class="neon">🍹 Beasty Bar</h1>
     <div class="panel">
       <p style="text-align:center">🎟️ You were invited to a game!</p>
@@ -58,7 +60,7 @@
   </section>
 
   <!-- ============ LOBBY ============ -->
-  <section id="screen-lobby" class="screen hidden">
+  <section id="screen-lobby" class="screen menu hidden">
     <h1 class="neon">🍹 Beasty Bar</h1>
     <div class="panel">
       <h2>⏳ Waiting for players…</h2>
@@ -73,55 +75,54 @@
     </div>
   </section>
 
-  <!-- ============ GAME ============ -->
+  <!-- ============ GAME (full-screen app layout) ============ -->
   <section id="screen-game" class="screen hidden">
+
     <div id="topbar">
-      <span id="deck-badge"></span>
       <div id="players-strip"></div>
-      <button id="help-btn" title="How to play">❓</button>
+      <button id="log-btn">📜</button>
+      <button id="help-btn">❓</button>
     </div>
 
-    <div id="piles">
-      <div class="pile" id="bar-pile">
-        <span class="pile-title">🍸</span>
-        <span class="pile-count" id="bar-count">0</span>
+    <div id="table">
+      <div class="edge" id="gate-row">
+        <div class="gate" id="gate-in">🚪</div>
+        <div class="edge-label">BEASTY BAR</div>
+        <div class="pile" id="bar-pile">🍸<span class="pile-count" id="bar-count">0</span></div>
       </div>
-      <div id="status"></div>
-      <div class="pile" id="trash-pile">
-        <span class="pile-title">🚮</span>
-        <span class="pile-count" id="trash-count">0</span>
-        <div id="trash-top"></div>
-      </div>
-    </div>
-
-    <div id="queue-row">
-      <div class="gate" id="gate-in">🚪</div>
       <div id="queue"></div>
-      <div class="gate out">⛔</div>
-    </div>
-
-    <div id="action-bar" class="hidden">
-      <div id="action-info">
-        <span id="action-emoji"></span>
-        <div>
-          <div id="action-title"></div>
-          <div id="action-icons"></div>
-          <div id="action-text"></div>
-        </div>
+      <div id="preview-strip" class="hidden"></div>
+      <div class="edge" id="exit-row">
+        <div class="gate out">⛔</div>
+        <div class="edge-label">THAT'S IT</div>
+        <div class="pile" id="trash-pile">🚮<span class="pile-count" id="trash-count">0</span><span id="trash-top"></span></div>
       </div>
-      <div id="action-buttons"></div>
     </div>
 
-    <div id="choice-buttons"></div>
+    <div id="stage">
+      <div id="status"></div>
+      <div id="action-bar" class="hidden">
+        <div id="action-info">
+          <span id="action-emoji"></span>
+          <div>
+            <div id="action-title"></div>
+            <div id="action-icons"></div>
+            <div id="action-text"></div>
+          </div>
+        </div>
+        <div id="action-buttons"></div>
+      </div>
+      <div id="choice-buttons"></div>
+    </div>
 
-    <div id="hand-row">
+    <div id="hand-dock">
       <div id="hand"></div>
     </div>
 
-    <details id="log-panel">
-      <summary>📜 Log</summary>
+    <div id="log-sheet" class="hidden">
+      <div id="log-head"><span>📜</span><button id="log-close">✕</button></div>
       <div id="log"></div>
-    </details>
+    </div>
   </section>
 
   <!-- ============ HELP ============ -->
@@ -129,7 +130,7 @@
     <div class="overlay-box">
       <h2>🍹 Beasty Bar</h2>
       <div class="help-row"><span>🐾</span><p>Get your animals into the bar. When <b>5</b> wait in line: first <b>2</b> → 🍸, last <b>1</b> → 🚮</p></div>
-      <div class="help-row"><span>🃏</span><p>Tap a card to <b>see what it does</b>, then ▶ to play it</p></div>
+      <div class="help-row"><span>🃏</span><p>Tap a card — you'll <b>see exactly what happens</b> before you confirm with ▶</p></div>
       <div class="help-row"><span>👆</span><p>When a choice is needed, tap one of the <b>glowing</b> cards or buttons</p></div>
       <div class="help-row"><span>🔁</span><p>= acts again on <b>every</b> turn &nbsp;·&nbsp; 🛡️ = protects &nbsp;·&nbsp; 🎭 = copies</p></div>
       <button id="help-close" class="cta">Let's party 🎉</button>

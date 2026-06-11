@@ -5,6 +5,7 @@ Create a room, share the invite link with friends; empty seats are filled
 with AI players. Decks: classic, new_beasts (expansion), mixed.
 Uses only the standard library.
 """
+import copy
 import json
 import secrets
 import sys
@@ -165,6 +166,41 @@ class Room:
                 card.imitate_class = max(others, key=lambda c: int(c.value)).__class__
 
     def play_human(self, token, animal_value, params):
+        seat, gs, card = self._validate_play(token, animal_value)
+        self._attach_params(card, params or {}, gs.get_player_hand(seat), gs)
+        self._apply_turn(card)
+        self._skip_finished()
+
+    def preview(self, token, animal_value, params):
+        """Dry-run a play on a copy of the game state, so the client can
+        SHOW the outcome (new line, who flies out, who gets in) before the
+        player commits."""
+        seat, _, _ = self._validate_play(token, animal_value)
+        gs = copy.deepcopy(self.state)
+        hand = gs.get_player_hand(seat)
+        card = next(c for c in hand if int(c.value) == int(animal_value))
+        self._attach_params(card, params or {}, hand, gs)
+        bar_before = len(gs.cards_in_bar)
+        trash_before = len(gs.cards_in_thrash)
+
+        gs.update_queue(card)
+        gate_opened = len(gs.queue) == 5
+        if gate_opened:
+            gs.cards_in_bar.extend(gs.queue[:2])
+            gs.cards_in_thrash.append(gs.queue[-1])
+            gs.queue = gs.queue[2:4]
+            new_queue, burned = gs.queue.burn_bats()
+            gs.queue = new_queue
+            gs.cards_in_thrash.extend(burned)
+
+        return {
+            "queue": [card_json(c) for c in gs.queue],
+            "to_bar": [card_json(c) for c in gs.cards_in_bar[bar_before:]],
+            "to_trash": [card_json(c) for c in gs.cards_in_thrash[trash_before:]],
+            "gate_opened": gate_opened,
+        }
+
+    def _validate_play(self, token, animal_value):
         if not self.started:
             raise GameError("the game has not started yet")
         seat = self.seat_of(token)
@@ -176,19 +212,17 @@ class Room:
             raise GameError("the game is over")
         if gs.current_player != seat:
             raise GameError("it is not your turn")
-        hand = gs.get_player_hand(seat)
-        card = next((c for c in hand if int(c.value) == int(animal_value)), None)
+        card = next((c for c in gs.get_player_hand(seat)
+                     if int(c.value) == int(animal_value)), None)
         if card is None:
             raise GameError("that card is not in your hand")
-        self._attach_params(card, params or {}, hand)
-        self._apply_turn(card)
-        self._skip_finished()
+        return seat, gs, card
 
-    def _attach_params(self, card, params, hand):
-        queue_len = len(self.state.queue)
+    def _attach_params(self, card, params, hand, gs):
+        queue_len = len(gs.queue)
         if isinstance(card, Chameleon) and "imitate" in params:
             chosen = int(params["imitate"])
-            if chosen not in [int(c.value) for c in self.state.queue]:
+            if chosen not in [int(c.value) for c in gs.queue]:
                 raise GameError("you can only imitate a species in the queue")
             card.imitate = chosen
         if isinstance(card, Penguin) and "imitate_value" in params:
@@ -199,7 +233,7 @@ class Room:
             card.imitate_class = chosen.__class__
         if isinstance(card, Vulture):
             revive = params.get("revive") or {}
-            card.revive_params = self._revive_params(revive)
+            card.revive_params = self._revive_params(revive, hand, gs)
         if "jump" in params:
             card.jump = int(params["jump"])
         if "parity" in params:
@@ -212,11 +246,11 @@ class Room:
                 raise GameError("invalid target")
             card.target_index = idx
 
-    def _revive_params(self, revive):
+    def _revive_params(self, revive, hand, gs):
         out = {}
         if "target_index" in revive:
             idx = int(revive["target_index"])
-            if not 0 <= idx < len(self.state.queue):
+            if not 0 <= idx < len(gs.queue):
                 raise GameError("invalid revive target")
             out["target_index"] = idx
         if "jump" in revive:
@@ -224,7 +258,6 @@ class Room:
         if revive.get("parity") in ("even", "odd"):
             out["parity"] = revive["parity"]
         if "imitate_value" in revive:
-            hand = self.state.get_player_hand(self.state.current_player)
             chosen = next((c for c in hand if int(c.value) == int(revive["imitate_value"])), None)
             if chosen is not None:
                 out["imitate_class"] = chosen.__class__
@@ -395,6 +428,9 @@ class Handler(BaseHTTPRequestHandler):
                     room = get_room(body.get("room", ""))
                     room.play_human(body.get("token"), body["card"], body.get("params"))
                     self._send_json(room.serialize(body.get("token")))
+                elif path == "/api/preview":
+                    room = get_room(body.get("room", ""))
+                    self._send_json(room.preview(body.get("token"), body["card"], body.get("params")))
                 else:
                     self.send_error(404)
         except (GameError, ValueError, KeyError) as exc:

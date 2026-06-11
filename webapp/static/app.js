@@ -1,4 +1,4 @@
-/* Beasty Bar web client: home -> lobby -> game, with multiplayer rooms. */
+/* Beasty Bar web client — full-screen mobile layout with outcome previews. */
 
 const EMOJI = {
   Lion: '🦁', Hippo: '🦛', Croc: '🐊', Snake: '🐍', Gazelle: '🦒', Zebra: '🦓',
@@ -8,8 +8,7 @@ const EMOJI = {
 };
 const LABEL = { Gazelle: 'Giraffe' };
 
-/* Pictogram language:
-   🔁 recurring · ♾️ always on · 🛡️ protects · 🎭 copies · ↕️ sorts
+/* 🔁 recurring · ♾️ always on · 🛡️ protects · 🎭 copies · ↕️ sorts
    ⏩ pushes forward · 🔄 reverses · ↷ jumps · 🚮 throws out · 😋 eats */
 const ICONS = {
   Lion:      '🚮🐒 ⏩🚪',
@@ -63,7 +62,7 @@ const HINTS = {
   Vulture: 'Brings the top trash card back to life, then lands on the trash.',
   Bat: 'Replaces any animal — but burns up whenever it is first in line!',
 };
-const TRAIT = {   // mini icon shown on the card itself
+const TRAIT = {
   Hippo: '🔁', Croc: '🔁', Gazelle: '🔁', Tiger: '🔁', Llama: '🔁',
   Zebra: '🛡️', Porcupine: '🛡️', Chameleon: '🎭', Penguin: '🎭',
   Bat: '💥', Vulture: '♻️', Seal: '🔄', Snake: '↕️', Dog: '↕️',
@@ -78,12 +77,12 @@ const $ = (sel) => document.querySelector(sel);
 const POLL_MS = 1100;
 
 let state = null;
-let flow = null;            // pending multi-step choice
-let inspect = null;         // card being looked at in the action bar
+let flow = null;       // pending multi-step choice
+let inspect = null;    // card shown in the action bar
+let preview = null;    // {card, params, data} — outcome waiting for confirm
 let pollTimer = null;
 let lastLogLen = null;
-let session = null;         // {room, token, seat}
-let prevRects = {};         // queue card key -> DOMRect (for FLIP)
+let session = null;
 let prevCounts = { bar: 0, trash: 0 };
 const ui = { deck: 'classic', total: 4, humans: 1 };
 
@@ -127,7 +126,7 @@ function show(screen) {
   $('#screen-' + screen).classList.remove('hidden');
 }
 
-/* ---------- home ---------- */
+/* ---------- menu ---------- */
 
 function segInit(sel, key, attr) {
   $(sel).addEventListener('click', (e) => {
@@ -184,7 +183,8 @@ $('#again-btn').onclick = () => {
   stopPolling();
   $('#end-overlay').classList.add('hidden');
   location.hash = '';
-  state = null; session = null; flow = null; inspect = null; lastLogLen = null;
+  state = session = flow = inspect = preview = null;
+  lastLogLen = null;
   show('home');
 };
 
@@ -193,6 +193,8 @@ $('#help-close').onclick = () => {
   localStorage.setItem('beasty_seen', '1');
   $('#help-overlay').classList.add('hidden');
 };
+$('#log-btn').onclick = () => { $('#log-sheet').classList.remove('hidden'); };
+$('#log-close').onclick = () => { $('#log-sheet').classList.add('hidden'); };
 
 /* ---------- lobby ---------- */
 
@@ -249,7 +251,18 @@ function onState() {
 
 /* ---------- rendering ---------- */
 
-function cardEl(card) {
+function qcardEl(card) {
+  const el = document.createElement('div');
+  el.className = `qcard p${card.player}`;
+  el.dataset.key = cardKey(card);
+  el.innerHTML = `
+    <span class="emoji">${EMOJI[card.name] || '❓'}</span>
+    <span class="qname">${label(card.name)}<small>${ICONS[card.name] || ''}</small></span>
+    <span class="qvalue">${card.animal}</span>`;
+  return el;
+}
+
+function handCardEl(card) {
   const el = document.createElement('div');
   el.className = `card p${card.player}`;
   el.dataset.key = cardKey(card);
@@ -261,8 +274,6 @@ function cardEl(card) {
 }
 
 function renderGame() {
-  $('#deck-badge').textContent =
-    state.deck === 'classic' ? '🦁' : state.deck === 'new_beasts' ? '🦏' : '🔀';
   renderPlayers();
   renderPiles();
   renderQueue();
@@ -279,6 +290,7 @@ function renderPlayers() {
   state.players.forEach((p, i) => {
     const el = document.createElement('div');
     el.className = 'pchip';
+    el.dataset.id = i;
     el.style.borderTopColor = getComputedStyle(document.documentElement).getPropertyValue(`--p${i}`);
     if (!state.finished && state.current_player === i) el.classList.add('active');
     const score = state.scoring === 'points' ? `🏅${p.score}` : `🍸${p.in_bar}`;
@@ -292,7 +304,7 @@ function renderPiles() {
   $('#bar-count').textContent = state.bar_count;
   $('#trash-count').textContent = state.trash_count;
   $('#trash-top').textContent = state.trash_top
-    ? `${EMOJI[state.trash_top.name]}${state.trash_top.animal}` : '·';
+    ? `${EMOJI[state.trash_top.name]}${state.trash_top.animal}` : '';
   if (state.bar_count !== prevCounts.bar) bumpPile('#bar-pile');
   if (state.trash_count !== prevCounts.trash) bumpPile('#trash-pile');
   prevCounts = { bar: state.bar_count, trash: state.trash_count };
@@ -307,10 +319,45 @@ function bumpPile(sel) {
 
 function renderQueue() {
   const box = $('#queue');
+  const strip = $('#preview-strip');
+
+  if (preview) {        // ----- show the future, not the present -----
+    box.innerHTML = '';
+    const oldIndex = {};
+    state.queue.forEach((c, i) => { oldIndex[cardKey(c)] = i; });
+    preview.data.queue.forEach((card, i) => {
+      const el = qcardEl(card);
+      el.classList.add('ghost');
+      const was = oldIndex[cardKey(card)];
+      const delta = document.createElement('span');
+      delta.className = 'qdelta';
+      delta.textContent = was === undefined ? '✨'
+        : was > i ? '⬆︎' + (was - i) : was < i ? '⬇︎' + (i - was) : '·';
+      el.appendChild(delta);
+      box.appendChild(el);
+    });
+    for (let i = preview.data.queue.length; i < 5; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'qslot';
+      box.appendChild(slot);
+    }
+    const bits = [];
+    if (preview.data.to_bar.length) {
+      bits.push(`<span class="pv bar">→🍸 ${preview.data.to_bar.map(c => EMOJI[c.name]).join(' ')}</span>`);
+    }
+    if (preview.data.to_trash.length) {
+      bits.push(`<span class="pv trash">→🚮 ${preview.data.to_trash.map(c => EMOJI[c.name]).join(' ')}</span>`);
+    }
+    strip.innerHTML = bits.join(' ') || '<span class="pv">no one moves</span>';
+    strip.classList.remove('hidden');
+    lastLogLen = state.log_total ?? state.log.length;
+    return;
+  }
+  strip.classList.add('hidden');
 
   // FLIP step 1: remember where each card was
   const oldRects = {};
-  for (const el of box.querySelectorAll('.card')) {
+  for (const el of box.querySelectorAll('.qcard')) {
     oldRects[el.dataset.key] = el.getBoundingClientRect();
   }
 
@@ -319,21 +366,22 @@ function renderQueue() {
   const newCount = lastLogLen === null ? 0 : Math.max(0, total - lastLogLen);
   const freshEntries = newCount ? state.log.slice(-Math.min(newCount, state.log.length)) : [];
   const lastEntry = state.log[state.log.length - 1];
-  const isFreshTurn = freshEntries.length > 0;
+
   state.queue.forEach((card, i) => {
-    const el = cardEl(card);
+    const el = qcardEl(card);
     decorateQueueCard(el, card, i);
     box.appendChild(el);
   });
   for (let i = state.queue.length; i < 5; i++) {
     const slot = document.createElement('div');
-    slot.className = 'slot';
+    slot.className = 'qslot';
     box.appendChild(slot);
   }
 
-  // FLIP step 2: animate moved cards from old to new position
+  // FLIP step 2: slide moved cards; let the just-played card arrive
+  // visibly from its owner's chip
   requestAnimationFrame(() => {
-    for (const el of box.querySelectorAll('.card')) {
+    for (const el of box.querySelectorAll('.qcard')) {
       const old = oldRects[el.dataset.key];
       if (old) {
         const now = el.getBoundingClientRect();
@@ -345,17 +393,35 @@ function renderQueue() {
           el.style.transform = '';
           el.addEventListener('transitionend', () => el.classList.remove('moving'), { once: true });
         }
-      } else if (isFreshTurn && lastEntry &&
+      } else if (freshEntries.length && lastEntry &&
                  el.dataset.key === cardKey(lastEntry.played)) {
-        el.classList.add('entering');
+        const chip = $(`#players-strip .pchip[data-id="${lastEntry.player}"]`);
+        if (chip) {
+          const from = chip.getBoundingClientRect();
+          const now = el.getBoundingClientRect();
+          el.style.transform =
+            `translate(${from.left - now.left}px, ${from.top - now.top}px) scale(.3)`;
+          void el.offsetWidth;
+          el.classList.add('moving');
+          el.style.transform = '';
+          el.addEventListener('transitionend', () => el.classList.remove('moving'), { once: true });
+        } else {
+          el.classList.add('entering');
+        }
       }
     }
   });
 
-  // fly removed cards to the piles
+  // fly outgoing animals to the piles; swing the gate when it opens
   for (const entry of freshEntries) {
     flyCards(entry.to_bar, oldRects, '#bar-pile');
     flyCards(entry.to_trash, oldRects, '#trash-pile');
+    if (entry.gate_opened) {
+      const gate = $('#gate-in');
+      gate.classList.remove('open');
+      void gate.offsetWidth;
+      gate.classList.add('open');
+    }
   }
   lastLogLen = total;
 }
@@ -364,35 +430,42 @@ function flyCards(cards, oldRects, pileSel) {
   const pile = $(pileSel).getBoundingClientRect();
   for (const c of cards) {
     const from = oldRects[cardKey(c)];
-    if (!from) continue;   // wasn't visible in the line
-    const ghost = cardEl(c);
-    ghost.style.left = from.left + 'px';
-    ghost.style.top = from.top + 'px';
-    ghost.style.width = from.width + 'px';
-    ghost.style.height = from.height + 'px';
+    if (!from) continue;
+    const ghost = document.createElement('div');
+    ghost.className = 'fly';
+    ghost.textContent = EMOJI[c.name];
+    ghost.style.left = (from.left + 8) + 'px';
+    ghost.style.top = (from.top + from.height / 2 - 15) + 'px';
     $('#fly-layer').appendChild(ghost);
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      ghost.style.left = (pile.left + pile.width / 2 - from.width / 4) + 'px';
-      ghost.style.top = pile.top + 'px';
-      ghost.style.transform = 'scale(.4) rotate(8deg)';
+      ghost.style.left = (pile.left + pile.width / 2 - 15) + 'px';
+      ghost.style.top = (pile.top + pile.height / 2 - 15) + 'px';
+      ghost.style.transform = 'scale(.4) rotate(10deg)';
       ghost.style.opacity = '0';
     }));
-    setTimeout(() => ghost.remove(), 800);
+    setTimeout(() => ghost.remove(), 900);
   }
 }
 
 function decorateQueueCard(el, card, index) {
   if (flow) {
     const step = flow.steps[0];
-    if (step && (step.type === 'pick-queue' || (step.type === 'pick-species' && card.name !== 'Chameleon'))) {
+    const pickable = step && (step.type === 'pick-queue' ||
+      (step.type === 'pick-species' && card.name !== 'Chameleon'));
+    if (pickable) {
       el.classList.add('selectable');
+      if (step.badge) {
+        const b = document.createElement('span');
+        b.className = 'qbadge';
+        b.textContent = step.badge;
+        el.appendChild(b);
+      }
       el.onclick = () => onQueuePick(card, index);
     } else {
       el.classList.add('dimmed');
     }
     return;
   }
-  // no flow: tapping a queue card explains it
   el.classList.add('clickable');
   el.onclick = () => { inspect = { card, inHand: false }; renderGame(); };
 }
@@ -403,14 +476,15 @@ function renderHand() {
   const myTurn = !state.finished && state.you !== null && state.current_player === state.you;
   const step = flow && flow.steps[0];
   for (const card of state.hand) {
-    const el = cardEl(card);
+    const el = handCardEl(card);
     if (step && step.type === 'pick-hand') {
-      if (card.animal === flow.card) { el.classList.add('selected'); el.onclick = cancelFlow; }
+      if (card.animal === flow.card) { el.classList.add('selected'); el.onclick = cancelAll; }
       else { el.classList.add('selectable', 'clickable'); el.onclick = () => onHandPick(card); }
-    } else if (flow) {
-      el.classList.toggle('selected', card.animal === flow.card);
-      el.classList.toggle('dimmed', card.animal !== flow.card);
-      if (card.animal === flow.card) el.onclick = cancelFlow;
+    } else if (flow || preview) {
+      const active = card.animal === (flow ? flow.card : preview.card);
+      el.classList.toggle('selected', active);
+      el.classList.toggle('dimmed', !active);
+      if (active) el.onclick = cancelAll;
     } else {
       el.classList.add('clickable');
       if (inspect && inspect.inHand && inspect.card.animal === card.animal) el.classList.add('selected');
@@ -422,6 +496,27 @@ function renderHand() {
 
 function renderActionBar() {
   const bar = $('#action-bar');
+  const btns = $('#action-buttons');
+
+  if (preview) {        // confirm step: the board already SHOWS the outcome
+    bar.classList.remove('hidden');
+    const c = preview.cardInfo;
+    $('#action-emoji').textContent = EMOJI[c.name];
+    $('#action-title').textContent = `${label(c.name)} · ${c.animal}`;
+    $('#action-icons').textContent = ICONS[c.name] || '';
+    $('#action-text').textContent = '';
+    btns.innerHTML = '';
+    const ok = document.createElement('button');
+    ok.className = 'primary';
+    ok.textContent = '▶ Play';
+    ok.onclick = commitPreview;
+    const no = document.createElement('button');
+    no.textContent = '✕';
+    no.onclick = cancelAll;
+    btns.append(ok, no);
+    return;
+  }
+
   if (!inspect || flow) { bar.classList.add('hidden'); return; }
   const c = inspect.card;
   bar.classList.remove('hidden');
@@ -429,12 +524,11 @@ function renderActionBar() {
   $('#action-title').textContent = `${label(c.name)} · ${c.animal}`;
   $('#action-icons').textContent = ICONS[c.name] || '';
   $('#action-text').textContent = HINTS[c.name] || '';
-  const btns = $('#action-buttons');
   btns.innerHTML = '';
   if (inspect.inHand && inspect.playable) {
     const play = document.createElement('button');
     play.className = 'primary';
-    play.textContent = '▶ Play';
+    play.textContent = '👁 Preview';
     play.onclick = () => { const card = inspect.card; inspect = null; startFlow(card); };
     btns.appendChild(play);
   }
@@ -449,7 +543,9 @@ function showStatus(msg) { $('#status').textContent = msg; }
 function renderChoices() {
   const buttons = $('#choice-buttons');
   buttons.innerHTML = '';
-  if (state.finished) { showStatus('🏁 Game over'); return; }
+  if (state.finished) { showStatus('🏁'); return; }
+
+  if (preview) { showStatus('✨ This is what will happen'); return; }
 
   if (flow) {
     const step = flow.steps[0];
@@ -475,16 +571,16 @@ function renderChoices() {
     }
     const cancel = document.createElement('button');
     cancel.textContent = '✕';
-    cancel.onclick = cancelFlow;
+    cancel.onclick = cancelAll;
     buttons.appendChild(cancel);
     return;
   }
 
-  if (state.you === null) { showStatus('👀 Watching'); return; }
+  if (state.you === null) { showStatus('👀'); return; }
   if (state.current_player === state.you) {
-    showStatus(state.hand.length ? '🫵 Your turn — tap a card' : '✅ No cards left');
+    showStatus(state.hand.length ? '🫵 Tap a card' : '✅');
   } else {
-    showStatus(`⏳ ${playerName(state.current_player)}…`);
+    showStatus(`⏳ ${playerName(state.current_player)}`);
   }
 }
 
@@ -496,15 +592,15 @@ function stepsFor(kindName, opts) {
   const steps = [];
   const e = EMOJI[kindName];
   if (kindName === 'Parrot' && q) {
-    steps.push({ type: 'pick-queue', into, param: 'target_index', prompt: `${e} Tap who flies out 🚮` });
+    steps.push({ type: 'pick-queue', into, param: 'target_index', badge: '🚮', prompt: `${e} Tap who flies out` });
   } else if (kindName === 'Kangaroo' && q >= 2) {
-    steps.push({ type: 'jump', into, param: 'jump', prompt: `${e} Jump over how many?` });
+    steps.push({ type: 'jump', into, param: 'jump', prompt: `${e} Jump how far?` });
   } else if (kindName === 'Bat' && q) {
-    steps.push({ type: 'pick-queue', into, param: 'target_index', prompt: `${e} Tap whose spot to take (🚪 = 💥!)` });
+    steps.push({ type: 'pick-queue', into, param: 'target_index', badge: '🚮', prompt: `${e} Tap whose spot to take` });
   } else if (kindName === 'Ostrich' && q) {
     steps.push({ type: 'parity', into, param: 'parity', prompt: `${e} Run past which values?` });
   } else if (kindName === 'Chameleon' && state.queue.some(c => c.name !== 'Chameleon')) {
-    steps.push({ type: 'pick-species', into, param: 'imitate', prompt: `${e} Tap the species to copy 🎭` });
+    steps.push({ type: 'pick-species', into, param: 'imitate', badge: '🎭', prompt: `${e} Tap the species to copy` });
   } else if (kindName === 'Penguin' && opts.hand && opts.hand.length) {
     steps.push({ type: 'pick-hand', into, param: 'imitate_value', prompt: `${e} Tap a hand card to copy 🎭` });
   }
@@ -512,7 +608,7 @@ function stepsFor(kindName, opts) {
 }
 
 function startFlow(card) {
-  flow = { card: card.animal, params: {}, steps: [] };
+  flow = { card: card.animal, cardInfo: card, params: {}, steps: [] };
   if (card.name === 'Vulture') {
     if (state.trash_top && state.trash_top.name !== 'Vulture') {
       flow.params.revive = {};
@@ -557,26 +653,36 @@ function onHandPick(card) {
   advanceFlow();
 }
 
-function advanceFlow() {
-  if (flow.steps.length === 0) {
-    const { card, params } = flow;
-    flow = null;
-    playCard(card, params);
+async function advanceFlow() {
+  if (flow.steps.length > 0) { renderGame(); return; }
+  // all decisions made: fetch the dry-run and SHOW the outcome
+  const { card, cardInfo, params } = flow;
+  flow = null;
+  try {
+    const data = await api('/api/preview', { room: session.room, token: session.token, card, params });
+    preview = { card, cardInfo, params, data };
+  } catch (e) {
+    showStatus(`⚠️ ${e.message}`);
     return;
   }
   renderGame();
 }
 
-function cancelFlow() { flow = null; renderGame(); }
-
-async function playCard(animal, params) {
-  flow = null; inspect = null;
+async function commitPreview() {
+  const { card, params } = preview;
+  preview = null;
+  inspect = null;
   try {
-    state = await api('/api/play', { room: session.room, token: session.token, card: animal, params });
+    state = await api('/api/play', { room: session.room, token: session.token, card, params });
     onState();
   } catch (e) {
     showStatus(`⚠️ ${e.message}`);
   }
+}
+
+function cancelAll() {
+  flow = null; preview = null; inspect = null;
+  renderGame();
 }
 
 /* ---------- log & end ---------- */
