@@ -64,4 +64,4 @@ def test_easy_is_random_but_legal():
 
 
 def test_levels_exist():
-    assert set(bots.LEVELS) == {'easy', 'medium', 'hard'}
+    assert set(bots.LEVELS) == {'easy', 'medium', 'hard', 'ultra'}

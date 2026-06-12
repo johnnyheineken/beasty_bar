@@ -700,3 +700,27 @@ input {
   font-size: 13px; line-height: 1.5; text-align: left;
 }
 .game-when { color: var(--muted); font-size: 12px; }
+
+/* ---------- misplay review ---------- */
+
+#review-list {
+  max-height: 38vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 10px 0;
+  text-align: left;
+}
+.rv-head { font-size: 13px; color: var(--muted); margin: 8px 0 4px; font-weight: 700; }
+.rv-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  margin-bottom: 3px;
+  background: var(--panel-2);
+}
+.rv-row.good { opacity: .65; }
+.rv-row.meh { border-left: 3px solid var(--accent); }
+.rv-row.bad { border-left: 3px solid var(--err); background: rgba(248,113,113,.12); }

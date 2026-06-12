@@ -49,7 +49,7 @@ def card_json(card):
     }
 
 
-AI_NAMES = {'easy': '🐣', 'medium': '🙂', 'hard': '🧠'}
+AI_NAMES = {'easy': '🐣', 'medium': '🙂', 'hard': '🧠', 'ultra': '🔥'}
 AI_POOL = [
     "Bongo", "Ziggy", "Mojito", "Coco", "Lola", "Rambo", "Fifi", "Karel",
     "Zorro", "Pablo", "Chico", "Dolly", "Gigi", "Spike", "Bruno", "Peppa",
@@ -67,7 +67,7 @@ class Room:
         # for every AI seat (older clients)
         ai_levels = [difficulty] * int(ai) if isinstance(ai, int) else list(ai)
         if any(lvl not in bots.LEVELS for lvl in ai_levels):
-            raise GameError("difficulty must be easy, medium or hard")
+            raise GameError("difficulty must be easy, medium, hard or ultra")
         if len(local_names) + len(ai_levels) > total:
             raise GameError("too many players for this table size")
         self.id = secrets.token_urlsafe(4)
@@ -95,6 +95,7 @@ class Room:
         self.last_ai_move = 0.0
         self.recorded = False     # finished game archived in the database
         self.saved_version = -1
+        self.reviews = {}         # seat -> list of analyzed human moves
         self.host_token, _ = self.claim_seats(local_names)
 
     # ---- persistence ----
@@ -109,6 +110,7 @@ class Room:
             "last_touch": self.last_touch,
             "recorded": self.recorded,
             "host_token": self.host_token,
+            "reviews": self.reviews,
             "state": self.state.to_json(),
         }
 
@@ -126,6 +128,7 @@ class Room:
         room.last_touch = doc["last_touch"]
         room.recorded = doc.get("recorded", False)
         room.host_token = doc.get("host_token")
+        room.reviews = doc.get("reviews", {})
         room.last_ai_move = 0.0
         room.saved_version = room.version
         return room
@@ -257,8 +260,33 @@ class Room:
     def play_human(self, token, animal_value, params):
         seat, gs, card = self._validate_play(token, animal_value)
         self._attach_params(card, params or {}, gs.get_player_hand(seat), gs)
+        self._record_review(seat, gs, card)
         self._apply_turn(card)
         self._skip_finished()
+
+    def _record_review(self, seat, gs, card):
+        """Compare the human's move (decisions already attached) with the
+        best play the ultra bot can find, for the post-game report."""
+        try:
+            r = bots.review_move(gs, seat, card)
+            note = {}
+            setup = r["best_setup"]
+            if "target_index" in setup and 0 <= setup["target_index"] < len(gs.queue):
+                note["target"] = card_json(gs.queue[setup["target_index"]])
+            for key in ("jump", "parity", "imitate", "imitate_value"):
+                if key in setup:
+                    note[key] = setup[key]
+            self.reviews.setdefault(str(seat), []).append({
+                "turn": gs.turn_number,
+                "queue": [card_json(c) for c in gs.queue],
+                "played": card_json(card),
+                "chosen_score": r["chosen_score"],
+                "best": card_json(r["best_card"]),
+                "best_score": r["best_score"],
+                "best_note": note,
+            })
+        except Exception:
+            pass  # the review must never block a move
 
     def preview(self, token, animal_value, params):
         """Dry-run a play on a copy of the game state, so the client can
@@ -402,6 +430,7 @@ class Room:
             gs.update_results()
             data["results"] = {str(p): n for p, n in gs.results.items()}
             data["winners"] = gs.get_winners()
+            data["review"] = {str(s): self.reviews.get(str(s), []) for s in seats}
         return data
 
 

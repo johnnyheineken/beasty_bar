@@ -90,7 +90,7 @@ const ui = {
   deck: 'classic', total: 4, local: 1, ai: 3, joinLocal: 1,
   aiLevels: ['medium', 'medium', 'medium'],   // per-AI difficulty
 };
-const LEVEL_FACE = { easy: '🐣', medium: '🙂', hard: '🧠' };
+const LEVEL_FACE = { easy: '🐣', medium: '🙂', hard: '🧠', ultra: '🔥' };
 
 function label(name) { return LABEL[name] || name; }
 function cardKey(c) { return `${c.name}-${c.player}`; }
@@ -213,7 +213,7 @@ function renderAiLevels() {
     tag.className = 'ai-tag';
     tag.textContent = `🤖 ${i + 1}`;
     row.appendChild(tag);
-    for (const lvl of ['easy', 'medium', 'hard']) {
+    for (const lvl of ['easy', 'medium', 'hard', 'ultra']) {
       const b = document.createElement('button');
       b.innerHTML = `${LEVEL_FACE[lvl]}<small>${lvl === 'medium' ? 'normal' : lvl}</small>`;
       b.classList.toggle('on', ui.aiLevels[i] === lvl);
@@ -1183,10 +1183,40 @@ function renderLog() {
   box.scrollTop = box.scrollHeight;
 }
 
+function reviewRows() {
+  const rows = [];
+  for (const [seat, moves] of Object.entries(state.review || {})) {
+    if (!moves.length) continue;
+    let lost = 0, slips = 0;
+    const body = moves.map((m, i) => {
+      const delta = m.best_score - m.chosen_score;
+      let cls = 'good';
+      let note = '✓';
+      if (delta > 1.5) {
+        slips++; lost += delta;
+        cls = delta > 5 ? 'bad' : 'meh';
+        const tgt = m.best_note && m.best_note.target ? '→' + EMOJI[m.best_note.target.name] : '';
+        note = `${EMOJI[m.best.name]}${tgt} was +${delta.toFixed(1)}`;
+      }
+      return `<div class="rv-row ${cls}"><span>#${i + 1} ▶ ${EMOJI[m.played.name]} ${label(m.played.name)}</span><span>${note}</span></div>`;
+    }).join('');
+    const who = isHotseat() ? `${state.players[seat].avatar || ''} ${state.players[seat].name}` : 'You';
+    rows.push(`<div class="rv-head">${who} · ${slips ? `${slips} slips found` : 'clean game 👌'}</div>` + body);
+  }
+  return rows.join('');
+}
+
 function renderEnd() {
   const overlay = $('#end-overlay');
   if (!state.finished) { overlay.classList.add('hidden'); return; }
   overlay.classList.remove('hidden');
+  const review = reviewRows();
+  $('#review-btn').classList.toggle('hidden', !review);
+  $('#review-btn').onclick = () => {
+    const list = $('#review-list');
+    list.innerHTML = review;
+    list.classList.toggle('hidden');
+  };
   const winners = state.winners || [];
   const mineWin = winners.filter(w => mySeats().includes(w));
   $('#end-title').textContent = mineWin.length && !isHotseat()

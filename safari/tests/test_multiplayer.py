@@ -213,3 +213,37 @@ def test_fair_start_varies_opener_and_seating():
         host_seats.add(room.seats_of(room.host_token)[0])
     assert len(openers) > 1, "the same player always starts"
     assert len(host_seats) > 1, "the host always sits in seat 0"
+
+
+def test_misplay_review_recorded(tmp_path):
+    _fresh_db(tmp_path)
+    room = make_room(total=2, local=["Hero"], ai=["ultra"])
+    gs = room.state
+    for _ in range(100):
+        if gs.finished:
+            break
+        p = gs.current_player
+        if p == 0:
+            hand = gs.table[0]["hand"]
+            if hand:
+                room.play_human(room.host_token, int(hand[0].value), {})
+            else:
+                room._skip_finished()
+        else:
+            room.last_ai_move = 0
+            room.tick()
+    assert gs.finished
+    moves = room.reviews.get("0", [])
+    assert len(moves) == 12      # every human move was analyzed
+    for m in moves:
+        assert m["best_score"] >= m["chosen_score"] - 1e-6
+        assert "played" in m and "best" in m
+    # only the owner sees their review
+    view = room.serialize(room.host_token)
+    assert len(view["review"]["0"]) == 12
+    stranger = room.serialize(None)
+    assert stranger.get("review", {}) == {}
+    # reviews survive a restart
+    room.persist()
+    restored = server.Room.from_doc(server.db.load_room(room.id))
+    assert len(restored.reviews["0"]) == 12
