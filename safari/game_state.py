@@ -4,7 +4,8 @@ from typing import List, Dict, Type, Optional
 from safari.stacks.queue import Queue
 from safari.players.strategies import Player, Max, Strategy  # Import all strategy classes
 from safari.cards.base import Card, ANIMALS
-from safari.stacks.shuffle import ANIMAL_MAPPING
+from safari.cards.new_beasts_deck import Vulture
+from safari.stacks.shuffle import ANIMAL_MAPPING, CARD_CLASSES
 
 # Create a mapping of strategy names to strategy classes
 STRATEGY_MAP: Dict[str, Type[Strategy]] = {
@@ -34,6 +35,11 @@ class GameState:
     finished: bool = False
     results: Dict[int, int] = field(default_factory=dict)
     last_queue_evaluation: Optional[QueueEvaluationResult] = None
+    # 'count' = base game (most guests, ties broken by lower total value);
+    # 'points' = New Beasts in Town / mixed (sum of card points, ties stand)
+    scoring: str = 'count'
+    # step timeline of the most recent turn (transient, for animations)
+    last_events: List = field(default_factory=list)
 
     def set_queue_evaluation_result(self, to_winners, to_losers, new_queue):
         self.last_queue_evaluation = QueueEvaluationResult(
@@ -45,7 +51,8 @@ class GameState:
     def to_json(self):
         def serialize_card(card):
             return {
-                "animal": card.value,
+                "animal": int(card.value),
+                "kind": card.__class__.__name__,
                 "player": card.player
             }
 
@@ -54,6 +61,8 @@ class GameState:
         data['cards_in_thrash'] = [serialize_card(card) for card in self.cards_in_thrash]
         data['queue'] = [serialize_card(card) for card in self.queue]
         data['old_queue'] = [serialize_card(card) for card in self.old_queue]
+        data['last_queue_evaluation'] = None  # transient, holds raw Card objects
+        data['last_events'] = []              # transient, holds raw Card objects
 
         serialized_table = {}
         for player, info in data['table'].items():
@@ -73,12 +82,18 @@ class GameState:
         data = json.loads(json_str)
 
         def deserialize_card(card_data):
+            if 'kind' in card_data:
+                return CARD_CLASSES[card_data['kind']](card_data['player'])
             return ANIMAL_MAPPING[ANIMALS(card_data['animal'])](card_data['player'])
 
         data['cards_in_bar'] = [deserialize_card(card) for card in data['cards_in_bar']]
         data['cards_in_thrash'] = [deserialize_card(card) for card in data['cards_in_thrash']]
         data['queue'] = Queue([deserialize_card(card) for card in data['queue']])
         data['old_queue'] = Queue([deserialize_card(card) for card in data['old_queue']])
+        data['last_queue_evaluation'] = None
+        data['last_events'] = []
+        # JSON turns int dict keys into strings
+        data['results'] = {int(p): v for p, v in (data.get('results') or {}).items()}
 
         deserialized_table = {}
         for player, info in data['table'].items():
@@ -99,9 +114,39 @@ class GameState:
 
     def update_queue(self, card):
         self.old_queue = self.queue.copy()
-        new_queue, dropped = self.queue.resolve(card)
+        self.last_events = []
+        if isinstance(card, Vulture):
+            self._play_vulture(card)
+            return
+        new_queue, dropped = self.queue.resolve(card, events=self.last_events)
         self.queue = new_queue
         self.cards_in_thrash.extend(dropped)
+
+    def _play_vulture(self, vulture):
+        """The vulture never joins the line. It revives the top card of
+        THAT'S IT, which re-joins the line and carries out its action;
+        the vulture itself lands on THAT'S IT at the end of the turn.
+        If it revives another vulture, both immediately enter the bar."""
+        trash = self.cards_in_thrash
+        if trash and isinstance(trash[-1], Vulture):
+            other = trash.pop()
+            self.cards_in_bar.extend([other, vulture])
+            new_queue, dropped = self.queue.run_recurring(events=self.last_events)
+            self.queue = new_queue
+            trash.extend(dropped)
+            return
+        if trash:
+            revived = trash.pop()
+            for attr, value in (vulture.revive_params or {}).items():
+                setattr(revived, attr, value)
+            new_queue, dropped = self.queue.resolve(revived, events=self.last_events)
+            self.queue = new_queue
+            trash.extend(dropped)
+        else:
+            new_queue, dropped = self.queue.run_recurring(events=self.last_events)
+            self.queue = new_queue
+            trash.extend(dropped)
+        trash.append(vulture)
 
     def add_winner(self, player):
         self.cards_in_bar.append(player)
@@ -119,9 +164,27 @@ class GameState:
         return all(self.table[p]['finished'] for p in self.table)
 
     def update_results(self):
-        self.results = {}
+        self.results = {p: 0 for p in self.players}
         for winner in self.cards_in_bar:
-            self.results[winner.player] = self.results.get(winner.player, 0) + winner.point_value
+            gain = winner.point_value if self.scoring == 'points' else 1
+            self.results[winner.player] = self.results.get(winner.player, 0) + gain
+
+    def get_winners(self):
+        """Base game ('count'): most guests in the bar wins, ties broken by
+        the LOWER sum of card values. New Beasts/mixed ('points'): most
+        points wins, ties stand. Several players can tie either way."""
+        if not self.results:
+            return []
+        best = max(self.results.values())
+        tied = [p for p, n in self.results.items() if n == best]
+        if len(tied) == 1 or self.scoring == 'points':
+            return tied
+        value_sums = {
+            p: sum(int(c.value) for c in self.cards_in_bar if c.player == p)
+            for p in tied
+        }
+        lowest = min(value_sums.values())
+        return [p for p in tied if value_sums[p] == lowest]
 
     def get_player_hand(self, player):
         return self.table[player]['hand']

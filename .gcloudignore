@@ -1,0 +1,5 @@
+.git
+.gitignore
+assets.pyxres
+safari_bar.pyxapp
+safari/tests

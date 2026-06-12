@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#160f20">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Beasty Bar">
+  <title>Beasty Bar</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ============ HOME ============ -->
+  <section id="screen-home" class="screen menu">
+    <h1 class="neon">🍹 Beasty Bar</h1>
+    <div class="panel">
+      <label>🃏 Deck</label>
+      <div class="seg" id="deck-select">
+        <button data-deck="classic" class="on">🦁<small>Classic</small></button>
+        <button data-deck="new_beasts">🦏<small>New&nbsp;Beasts</small></button>
+        <button data-deck="mixed">🔀<small>Mixed</small></button>
+      </div>
+      <div class="hint" id="deck-hint">The original 12 animals · most 🍸 wins</div>
+
+      <label>🪑 Players at the table</label>
+      <div class="seg" id="total-select">
+        <button data-n="2">2</button>
+        <button data-n="3">3</button>
+        <button data-n="4" class="on">4</button>
+      </div>
+
+      <label>📱 On this phone</label>
+      <div class="seg" id="local-select">
+        <button data-n="1" class="on">1</button>
+        <button data-n="2">2</button>
+        <button data-n="3">3</button>
+        <button data-n="4">4</button>
+      </div>
+      <div id="local-names"></div>
+
+      <label>🤖 AI players</label>
+      <div class="seg" id="ai-select">
+        <button data-n="0">0</button>
+        <button data-n="1">1</button>
+        <button data-n="2">2</button>
+        <button data-n="3" class="on">3</button>
+      </div>
+
+      <div id="ai-levels"></div>
+
+      <div class="hint" id="seats-hint"></div>
+
+      <button id="create-btn" class="cta">Create game 🍹</button>
+      <div class="hint err" id="home-error"></div>
+    </div>
+    <div class="home-links">
+      <button id="board-btn">🏆 Leaderboard</button>
+      <button id="games-btn">📜 Games</button>
+    </div>
+  </section>
+
+  <!-- ============ LEADERBOARD / GAMES ============ -->
+  <div id="board-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <div id="board-head">
+        <button id="board-prev">◀</button>
+        <h2 id="board-month"></h2>
+        <button id="board-next">▶</button>
+      </div>
+      <table id="board-table"></table>
+      <button id="board-close" class="cta">✕ Close</button>
+    </div>
+  </div>
+
+  <div id="games-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>📜 Recent games</h2>
+      <div id="games-list"></div>
+      <button id="games-close" class="cta">✕ Close</button>
+    </div>
+  </div>
+
+  <!-- ============ JOIN ============ -->
+  <section id="screen-join" class="screen menu hidden">
+    <h1 class="neon">🍹 Beasty Bar</h1>
+    <div class="panel">
+      <p style="text-align:center">🎟️ You were invited to a game!</p>
+      <label>📱 On this phone</label>
+      <div class="seg" id="join-local-select">
+        <button data-n="1" class="on">1</button>
+        <button data-n="2">2</button>
+      </div>
+      <div id="join-names"></div>
+      <button id="join-btn" class="cta">Join 🍹</button>
+      <div class="hint err" id="join-error"></div>
+    </div>
+  </section>
+
+  <!-- ============ LOBBY ============ -->
+  <section id="screen-lobby" class="screen menu hidden">
+    <h1 class="neon">🍹 Beasty Bar</h1>
+    <div class="panel">
+      <h2>⏳ Waiting for players…</h2>
+      <div id="lobby-seats"></div>
+      <label>🔗 Invite link — send it to your friends</label>
+      <div class="invite">
+        <input id="invite-link" readonly>
+        <button id="copy-btn">📋</button>
+        <button id="share-btn">📤</button>
+      </div>
+      <div class="hint">Friends can also join a running game — they take over a 🤖 seat.</div>
+    </div>
+  </section>
+
+  <!-- ============ GAME (full-screen app layout) ============ -->
+  <section id="screen-game" class="screen hidden">
+
+    <div id="topbar">
+      <div id="players-strip"></div>
+      <button id="log-btn">📜</button>
+      <button id="help-btn">❓</button>
+    </div>
+
+    <div id="table">
+      <div class="edge" id="gate-row">
+        <div class="gate" id="gate-in">🚪</div>
+        <div class="edge-label">BEASTY BAR</div>
+        <div class="pile" id="bar-pile">🍸<span class="pile-count" id="bar-count">0</span></div>
+      </div>
+      <div id="queue"></div>
+      <div id="preview-strip" class="hidden"></div>
+      <div class="edge" id="exit-row">
+        <div class="gate out">⛔</div>
+        <div class="edge-label">THAT'S IT</div>
+        <div class="pile" id="trash-pile">🚮<span class="pile-count" id="trash-count">0</span><span id="trash-top"></span></div>
+      </div>
+    </div>
+
+    <div id="stage">
+      <div id="status"></div>
+      <div id="action-bar" class="hidden">
+        <div id="action-info">
+          <span id="action-emoji"></span>
+          <div>
+            <div id="action-title"></div>
+            <div id="action-icons"></div>
+            <div id="action-text"></div>
+          </div>
+        </div>
+        <div id="action-buttons"></div>
+      </div>
+      <div id="choice-buttons"></div>
+    </div>
+
+    <div id="hand-dock">
+      <div id="hand"></div>
+    </div>
+
+    <div id="log-sheet" class="hidden">
+      <div id="log-head"><span>📜</span><button id="log-close">✕</button></div>
+      <div id="log"></div>
+    </div>
+  </section>
+
+  <!-- ============ HELP ============ -->
+  <div id="help-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>🍹 Beasty Bar</h2>
+      <div class="help-row"><span>🐾</span><p>Get your animals into the bar. When <b>5</b> wait in line: first <b>2</b> → 🍸, last <b>1</b> → 🚮</p></div>
+      <div class="help-row"><span>🃏</span><p>Tap a card — you'll <b>see exactly what happens</b> before you confirm with ▶</p></div>
+      <div class="help-row"><span>👆</span><p>When a choice is needed, tap one of the <b>glowing</b> cards or buttons</p></div>
+      <div class="help-row"><span>🔁</span><p>= acts again on <b>every</b> turn &nbsp;·&nbsp; 🛡️ = protects &nbsp;·&nbsp; 🎭 = copies</p></div>
+      <div class="help-row"><span>🎬</span><p><label for="anim-toggle"><input type="checkbox" id="anim-toggle" checked> Cards act out every turn</label></p></div>
+      <button id="help-close" class="cta">Let's party 🎉</button>
+    </div>
+  </div>
+
+  <!-- ============ END ============ -->
+  <div id="end-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2 id="end-title"></h2>
+      <table id="end-table"></table>
+      <button id="review-btn" class="hidden">📊 My misplays</button>
+      <div id="review-list" class="hidden"></div>
+      <button id="again-btn" class="cta">🔙 Menu</button>
+    </div>
+  </div>
+
+  <!-- ============ PASS THE PHONE ============ -->
+  <div id="pass-overlay" class="overlay hidden">
+    <div class="overlay-box" id="pass-box">
+      <div id="pass-emoji">📱</div>
+      <h2 id="pass-title"></h2>
+      <p class="hint">Hand over the phone, then tap</p>
+      <button id="pass-confirm" class="cta">👀 Show my cards</button>
+    </div>
+  </div>
+
+  <div id="fly-layer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

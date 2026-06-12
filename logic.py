@@ -51,7 +51,8 @@ class GameRunner:
             return None
 
         if isinstance(cards['strategy'], Player):
-            return self.get_human_player_card(hand)
+            # Human input comes from a frontend; the runner can't choose.
+            return None
         else:
             return cards["strategy"].strategy(hand)
 
@@ -75,6 +76,11 @@ class GameRunner:
             self.game_state.queue = self.game_state.queue[2:BAR_QUEUE_LENGTH - 1]
             self.game_state.cards_in_bar.extend(to_winners)
             self.game_state.cards_in_thrash.extend(to_losers)
+
+            # the shove toward the gate can put a bat into first position
+            new_queue, burned = self.game_state.queue.burn_bats()
+            self.game_state.queue = new_queue
+            self.game_state.cards_in_thrash.extend(burned)
 
             # Set the queue evaluation result in game state
             self.game_state.set_queue_evaluation_result(to_winners, to_losers, self.game_state.queue)
@@ -118,10 +124,10 @@ class GameRunner:
 
     def log_results(self):
         self.logger.info("Final Game Results:")
-        for player, points in self.game_state.results.items():
-            self.logger.info(f"  Player {player}: {points} points")
-        winner = max(self.game_state.results, key=self.game_state.results.get)
-        self.logger.info(f"Player {winner} wins!")
+        for player, guests in self.game_state.results.items():
+            self.logger.info(f"  Player {player}: {guests} guests in the bar")
+        winners = self.game_state.get_winners()
+        self.logger.info(f"Winner(s): {', '.join(f'Player {w}' for w in winners)}")
 
 
 def single_player():

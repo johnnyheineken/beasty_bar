@@ -10,13 +10,53 @@ I really like the game and I decided that it would be fun to look at the game.
 - How hard it is to implement the game? (Surprisingly hard, i.e. the queue management was first to me.)
 - What will be the optimal strategy? (I don't know yet.)
 
-## Run:
-In order to get a single played game for 4 players, run 
+## Play in the browser (multiplayer)
+
 ```
-python safari.py
+python webapp/server.py
+```
+
+Then open http://localhost:8000. Create a game, pick a deck, choose how many
+players share *this* phone (hotseat — the app asks to pass the phone between
+turns and hides hands in between), how many seats are AI, and share the
+invite link for the rest — each friend's device can also seat one or two
+players. Any mix works: e.g. 2 devices with 2 players each, or 2 humans on
+one phone vs. 2 AI.
+
+AI difficulty levels: 🐣 easy (random), 🙂 normal (simulates every card and
+picks a good outcome, with some noise), 🧠 hard (additionally searches all
+decisions — targets, jump distance, parity, imitations — and anticipates
+what enemy crocs/tigers/hippos will do next). Benchmarks over 200 games:
+hard beats normal ≈59:41; both beat easy ≈9:1.
+
+Decks:
+
+- 🦁 **Classic** — the original 12 animals; most guests in the bar wins
+  (ties broken by the lower total card value).
+- 🦏 **New Beasts in Town** — the 12 expansion animals (rhino, bear, tiger,
+  cheetah, llama, porcupine, ostrich, penguin, dog, peacock, vulture, bat);
+  the card points decide the winner.
+- 🔀 **Mixed** — every player gets a random pick of one animal per value
+  (1–12) from the two sets, points scoring. (The official combined rules
+  let each player draft their own 12; the random pick keeps the UI simple.)
+
+All in-game decisions are interactive: parrot/bat targets, kangaroo jump
+length, ostrich parity, chameleon species, penguin hand-card imitation, and
+the choices of a card revived by the vulture. Rare tie-breaking choices
+(rhino/cheetah/peacock with several equally strong targets) currently use
+a sensible default instead of a prompt.
+
+The server uses only the Python standard library — no dependencies needed.
+A `Dockerfile`/`Procfile` are included if you want to host it somewhere
+permanent (Render, Fly.io, Railway, …).
+
+## Run a simulated game:
+In order to get a single played game for 4 AI players, run
+```
+python logic.py
 ```
 You should get a log of the single game.  
-Works with Python 3.10.
+Works with Python 3.10+.
 
 ## Tests:
 
