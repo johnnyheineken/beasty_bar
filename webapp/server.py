@@ -55,10 +55,11 @@ AI_POOL = [
     "Zorro", "Pablo", "Chico", "Dolly", "Gigi", "Spike", "Bruno", "Peppa",
     "Olga", "Mango", "Tina", "Gusto", "Žofka", "Brutus", "Kiki", "Ferda",
 ]
+AVATARS = ['🦊', '🐙', '🦉', '🐸']
 
 
 class Room:
-    def __init__(self, total, local_names, ai, deck, difficulty='medium'):
+    def __init__(self, total, local_names, ai, deck, difficulty='medium', fair_start=True):
         if not 2 <= total <= 4:
             raise GameError("Beasty Bar is played by 2-4 players")
         local_names = [n for n in (local_names or []) if True][:total] or [""]
@@ -82,6 +83,12 @@ class Room:
         )
         self.runner = GameRunner(init(strategies={i: Max for i in range(total)}, deck=deck))
         self.state.scoring = 'points'  # house rule: points decide every deck
+        if fair_start:
+            # the rulebook starts with "the player with the wildest outfit":
+            # shuffle who sits where (humans aren't always before the AIs)
+            # and draw the opening player by lot
+            random.shuffle(self.seats)
+            self.state.current_player = random.randrange(total)
         self.log = []
         self.version = 0
         self.last_touch = time.time()
@@ -361,6 +368,7 @@ class Room:
             players.append({
                 "id": i,
                 "name": s["name"] or "(open seat)",
+                "avatar": AVATARS[i % len(AVATARS)],
                 "is_ai": s["is_ai"],
                 "difficulty": s.get("difficulty"),
                 "claimed": s["is_ai"] or s["token"] is not None,

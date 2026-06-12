@@ -348,7 +348,7 @@ function renderLobby() {
   state.players.forEach((p, i) => {
     const div = document.createElement('div');
     div.className = 'seat' + (p.claimed ? '' : ' open');
-    div.innerHTML = `<span class="who"><span class="chip p${i}"></span>${p.claimed ? p.name : 'waiting…'}</span>` +
+    div.innerHTML = `<span class="who">${p.avatar || ''} <span class="chip p${i}"></span>${p.claimed ? p.name : 'waiting…'}</span>` +
       `<span>${p.is_ai ? '🤖' : (p.claimed ? '✅' : '⏳')}</span>`;
     seats.appendChild(div);
   });
@@ -434,7 +434,7 @@ function renderPassOverlay() {
     && !playing;   // let the previous turn finish acting first
   if (!needsPass) { overlay.classList.add('hidden'); return; }
   overlay.classList.remove('hidden');
-  $('#pass-emoji').textContent = '📱➡️';
+  $('#pass-emoji').textContent = state.players[seat].avatar || '📱';
   $('#pass-title').innerHTML =
     `<span class="chip p${seat}"></span>${state.players[seat].name}'s turn`;
   $('#pass-confirm').onclick = () => {
@@ -763,7 +763,8 @@ function renderPlayers() {
     if (!state.finished && state.current_player === i) el.classList.add('active');
     const score = state.scoring === 'points' ? `🏅${p.score}` : `🍸${p.in_bar}`;
     const tag = p.is_ai ? '' : (p.mine && isHotseat() ? '📱' : '');
-    el.innerHTML = `<span class="pname">${playerName(i)}${tag}</span><br>` +
+    el.innerHTML = `<span class="pavatar">${p.avatar || ''}</span>` +
+      `<span class="pname">${playerName(i)}${tag}</span><br>` +
       `<span class="pmeta">✋${p.hand_count} ${score}</span>`;
     strip.appendChild(el);
   });
@@ -1194,7 +1195,7 @@ function renderEnd() {
   const unit = state.scoring === 'points' ? '🏅' : '🍸';
   const rows = state.players.map((p, i) => {
     const score = (state.results && state.results[i]) || 0;
-    return `<tr><td><span class="chip p${i}"></span>${playerName(i)}</td><td>${unit} ${score}</td></tr>`;
+    return `<tr><td>${p.avatar || ''} <span class="chip p${i}"></span>${playerName(i)}</td><td>${unit} ${score}</td></tr>`;
   });
   $('#end-table').innerHTML = rows.join('');
 }

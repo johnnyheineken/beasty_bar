@@ -12,8 +12,9 @@ _spec.loader.exec_module(server)
 
 
 def make_room(total=4, local=None, ai=0, deck='classic', difficulty='medium'):
+    # deterministic seating for tests; fairness is covered separately
     return server.Room(total=total, local_names=local or ["Host"], ai=ai,
-                       deck=deck, difficulty=difficulty)
+                       deck=deck, difficulty=difficulty, fair_start=False)
 
 
 def test_invite_works_when_only_ai_seats_remain():
@@ -78,7 +79,8 @@ def test_partial_claim_when_not_enough_seats():
 
 
 def test_per_seat_ai_difficulty():
-    room = server.Room(total=4, local_names=["Host"], ai=["easy", "hard"], deck='classic')
+    room = server.Room(total=4, local_names=["Host"], ai=["easy", "hard"], deck='classic',
+                       fair_start=False)
     assert room.seats[2]["difficulty"] == "easy" and "🐣" in room.seats[2]["name"]
     assert room.seats[3]["difficulty"] == "hard" and "🧠" in room.seats[3]["name"]
     view = room.serialize(room.host_token)
@@ -198,3 +200,16 @@ def test_prune_keeps_long_running_games(tmp_path):
     assert server.db.load_room("done-1d")
     assert server.db.load_room("dead-20d") is None
     assert server.db.load_room("done-5d") is None
+
+
+def test_fair_start_varies_opener_and_seating():
+    import random
+    random.seed(123)
+    openers, host_seats = set(), set()
+    for _ in range(30):
+        room = server.Room(total=4, local_names=["Host"], ai=["easy"] * 3,
+                           deck='classic', fair_start=True)
+        openers.add(room.state.current_player)
+        host_seats.add(room.seats_of(room.host_token)[0])
+    assert len(openers) > 1, "the same player always starts"
+    assert len(host_seats) > 1, "the host always sits in seat 0"
